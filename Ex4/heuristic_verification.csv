@@ -1,0 +1,4 @@
+map,reachable_states,consistency_edges_checked,consistency_violations,admissibility_states_sampled,admissibility_solvable_checked,admissibility_unsolvable_skipped,admissibility_violations
+testmap,40,92,0,40,16,24,0
+benchmark_1box,304,920,0,304,171,133,0
+benchmark_2box,9096,28996,0,100,68,32,0
