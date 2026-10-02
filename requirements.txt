@@ -1,0 +1,2 @@
+# Pygame 2.6.1 provides macOS x86_64 wheels compatible with Intel Macs.
+pygame==2.6.1

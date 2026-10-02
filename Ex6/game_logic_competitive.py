@@ -1,41 +1,73 @@
-from dataclasses import dataclass
-from typing import Tuple, FrozenSet, Dict, Optional
+from __future__ import annotations
 
-Position = Tuple[int, int]
+import os
+import sys
+from dataclasses import dataclass
+from typing import Dict, FrozenSet, Optional, Tuple
+
+# Ex6 mở rộng từ logic Sokoban ở Ex1 nên dùng lại luôn các helper cơ bản.
+PARENT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if PARENT_DIR not in sys.path:
+    sys.path.append(PARENT_DIR)
+
+from Ex1.game_logic import DIRECTION_VECTORS, Position, add_position, is_corner_deadlock_at
+
 
 @dataclass(frozen=True)
 class CompetitiveGameState:
+    """State cho Sokoban 2 agent cạnh tranh.
+
+    So với GameState ở Requirement 1, state mới bổ sung:
+    - vị trí của agent thứ hai,
+    - owner của từng box,
+    - số turn còn lại.
+    """
+
     agent1_pos: Position
     agent2_pos: Position
     boxes: FrozenSet[Position]
-    #box_owners: Mapping từ vị trí thùng -> ID của Agent sở hữu (1 hoặc 2)
+    # Lưu owner dạng tuple để state vẫn immutable/hashable giống GameState ở Ex1.
     box_owners: Tuple[Tuple[Position, int], ...]
-    steps_left: int  # Số bước n còn lại
+    steps_left: int
 
     def get_owner_dict(self) -> Dict[Position, int]:
-        """Chuyển đổi tuple sang dict để dễ truy vấn"""
+        """Chuyển tuple owner -> dict để truy vấn/cập nhật dễ hơn."""
         return dict(self.box_owners)
 
-    def __lt__(self, other):
-        return (self.agent1_pos, self.agent2_pos) < (other.agent1_pos, other.agent2_pos)
+    def __lt__(self, other: "CompetitiveGameState") -> bool:
+        """Dùng khi hai state có cùng priority trong heapq."""
+        return (self.agent1_pos, self.agent2_pos, self.boxes) < (
+            other.agent1_pos,
+            other.agent2_pos,
+            other.boxes,
+        )
 
 
 class CompetitiveSokobanGame:
-    walls: set
-    red_points: set
-    initial_state: CompetitiveGameState
-    max_steps: int
+    """Mở rộng Sokoban ở Requirement 1 thành bài toán 2 agent cạnh tranh.
+
+    Quy tắc chính:
+    - Hai agent cùng chọn action từ *một state ban đầu của turn*.
+    - Sau đó engine mới resolve hai action đồng thời.
+    - Hai agent không được đứng cùng ô hoặc đi xuyên qua nhau.
+    - Box trên goal vẫn có thể bị đối thủ đẩy ra rồi giành lại.
+    """
+
+    # Tái sử dụng 4 hướng đi từ Ex1, chỉ thêm Stay cho competitive mode.
+    ACTIONS = {**DIRECTION_VECTORS, "Stay": (0, 0)}
 
     def __init__(self, map_file_path: str, max_steps: int = 50):
         self.walls = set()
         self.red_points = set()
         self.max_steps = max_steps
-        
+
         agent1_pos = None
         agent2_pos = None
         temp_boxes = set()
 
-        with open(map_file_path, "r") as f:
+        # Format map giữ gần giống Ex1:
+        # % = wall, 1/A = agent1, 2 = agent2, B = box, D = goal, C = box-on-goal.
+        with open(map_file_path, "r", encoding="utf-8") as f:
             for i, line in enumerate(f):
                 row = list(line.rstrip("\n"))
                 for j, element in enumerate(row):
@@ -54,157 +86,273 @@ class CompetitiveSokobanGame:
                         temp_boxes.add(pos)
                         self.red_points.add(pos)
 
-        if not agent1_pos or not agent2_pos:
-            raise ValueError("Bản đồ phải có đủ 2 Agent (A/1 và 2)!")
-        initial_owners = []
-        for box in temp_boxes:
-            initial_owners.append((box, 0)) #0: Chưa thuộc về ai
+        if agent1_pos is None or agent2_pos is None:
+            raise ValueError("Bản đồ competitive phải có đủ 2 Agent (A/1 và 2)")
 
+        # Owner = 0 nghĩa là box chưa thuộc về agent nào.
         self.initial_state = CompetitiveGameState(
             agent1_pos=agent1_pos,
             agent2_pos=agent2_pos,
             boxes=frozenset(temp_boxes),
-            box_owners=tuple(initial_owners),
-            steps_left=self.max_steps
+            box_owners=tuple(sorted((box, 0) for box in temp_boxes)),
+            steps_left=max_steps,
         )
-    #Hàm tính điểm riêng
-    def get_scores(self, state: CompetitiveGameState):
+
+    def is_corner_deadlock(self, box_pos: Position) -> bool:
+        """Dùng lại đúng quy tắc corner deadlock của Requirement 1.
+
+        Engine không bắt buộc cấm mọi deadlock khi chơi; hàm này chủ yếu để
+        Requirement 7 có thể prune nước đi xấu trong lúc search.
         """
-        Tính điểm riêng cho từng Agent dựa trên số thùng đan nằm trên red point
-        và người sở hữu thùng đó là ai.
-        """
-        owners_dict = state.get_owner_dict()
-        score_agent1 = 0
-        score_agent2 = 0
-        unclaimed_on_target = 0
+        return is_corner_deadlock_at(box_pos, self.walls, self.red_points)
+
+    def get_scores(self, state: CompetitiveGameState) -> Dict[str, int]:
+        """Tính điểm của hai agent từ box đang nằm trên goal."""
+        owners = state.get_owner_dict()
+        score1 = score2 = unclaimed = 0
 
         for box in state.boxes:
-            if box in self.red_points:
-                owner = owners_dict.get(box, 0)
-                if owner == 1:
-                    score_agent1 += 1
-                elif owner == 2:
-                    score_agent2 += 1
-                else:
-                    #Thùng nằm sẵn trên đích từ ban đầu chưa ai đẩy
-                    unclaimed_on_target += 1 
+            if box not in self.red_points:
+                continue
+
+            owner = owners.get(box, 0)
+            if owner == 1:
+                score1 += 1
+            elif owner == 2:
+                score2 += 1
+            else:
+                unclaimed += 1
+
         return {
-            "agent1": score_agent1,
-            "agent2": score_agent2,
-            "unclaimed": unclaimed_on_target,
-            "total_on_target": score_agent1 + score_agent2 + unclaimed_on_target
+            "agent1": score1,
+            "agent2": score2,
+            "unclaimed": unclaimed,
+            "total_on_target": score1 + score2 + unclaimed,
         }
 
     def get_winner(self, state: CompetitiveGameState) -> Optional[int]:
-        """Xác định Agent chiến thắng khi hết số bước """
+        """Trả 1 nếu Agent 1 thắng, 2 nếu Agent 2 thắng, 0 nếu hòa."""
         scores = self.get_scores(state)
         if scores["agent1"] > scores["agent2"]:
             return 1
-        elif scores["agent2"] > scores["agent1"]:
+        if scores["agent2"] > scores["agent1"]:
             return 2
+        return 0
+
+    def _apply_box_move(
+        self,
+        boxes: set[Position],
+        owners: Dict[Position, int],
+        box_from: Position,
+        box_to: Position,
+        agent_id: int,
+    ) -> None:
+        """Di chuyển một box và cập nhật owner của box đó."""
+        boxes.remove(box_from)
+        boxes.add(box_to)
+
+        previous_owner = owners.pop(box_from, 0)
+
+        # Nếu agent vừa đẩy box VÀO goal thì box được tính cho agent đó.
+        if box_to in self.red_points:
+            owners[box_to] = agent_id
         else:
-            return 0  
+            # Nếu box bị đẩy ra khỏi goal thì tạm giữ owner cũ.
+            # Khi agent khác đẩy nó vào goal, owner sẽ được cập nhật lại.
+            owners[box_to] = previous_owner
 
-    
-    #Di chuyển và cập nhật người sỡ hữu thùng
-    def _try_move_agent(self, agent_id: int, agent_pos: Position, other_agent_pos: Position, 
-                        action: str, current_boxes: set, current_owners: Dict[Position, int]):
+    def _invalid_intent(self, agent_id: int, action: str, agent_pos: Position) -> Dict[str, object]:
+        """Tạo intent đứng im khi action không hợp lệ."""
+        return {
+            "agent_id": agent_id,
+            "action": action,
+            "valid": False,
+            "end_pos": agent_pos,
+            "box_from": None,
+            "box_to": None,
+            "pushed": False,
+        }
+
+    def _build_intent(
+        self,
+        agent_id: int,
+        agent_pos: Position,
+        other_agent_pos: Position,
+        action: str,
+        boxes: set[Position],
+    ) -> Dict[str, object]:
+        """Phân tích action thành "ý định" trước khi resolve đồng thời.
+
+        Quan trọng: hàm này KHÔNG cập nhật state ngay.
+        Cả Agent 1 và Agent 2 đều build intent từ cùng original state.
         """
-        Di chuyển Agent và cập nhật vị trí thùng + người sở hữu thùng.
-        """
-        dirs = {"Up": (-1, 0), "Down": (1, 0), "Left": (0, -1), "Right": (0, 1)}
-        if action not in dirs:
-            return agent_pos, current_boxes, current_owners, False
+        if action not in self.ACTIONS:
+            action = "Stay"
 
-        di, dj = dirs[action]
-        new_pos = (agent_pos[0] + di, agent_pos[1] + dj)
+        delta = self.ACTIONS[action]
 
-        #Tránh đâm tường hoặc đâm vào Agent kia
-        if new_pos in self.walls or new_pos == other_agent_pos:
-            return agent_pos, current_boxes, current_owners, False
+        if action == "Stay":
+            return {
+                "agent_id": agent_id,
+                "action": action,
+                "valid": True,
+                "end_pos": agent_pos,
+                "box_from": None,
+                "box_to": None,
+                "pushed": False,
+            }
 
-        #Trường hợp đẩy thùng
-        if new_pos in current_boxes:
-            box_new_pos = (new_pos[0] + di, new_pos[1] + dj)
-            #Kiểm tra vật cản phía sau thùng[cite: 1]
-            if (box_new_pos in self.walls or 
-                box_new_pos in current_boxes or 
-                box_new_pos == other_agent_pos):
-                return agent_pos, current_boxes, current_owners, False
-            #Cập nhật danh sách thùng
-            updated_boxes = set(current_boxes)
-            updated_boxes.remove(new_pos)
-            updated_boxes.add(box_new_pos)
-            #Cập nhật thông tin sở hữu thùng
-            updated_owners = dict(current_owners)
-            previous_owner = updated_owners.pop(new_pos, 0)
-            #Nếu thùng mới được đẩy VÀO điểm đích
-            if box_new_pos in self.red_points:
-                updated_owners[box_new_pos] = agent_id
-            #Nếu thùng bị đẩy RA KHỎI điểm đích
-            else:
-                updated_owners[box_new_pos] = previous_owner
-            return new_pos, updated_boxes, updated_owners, True
-        # Di chuyển vào ô trống
-        return new_pos, current_boxes, current_owners, True
+        next_pos = add_position(agent_pos, delta)
 
-    def apply_joint_actions(self, state: CompetitiveGameState, action1: str, action2: str) -> CompetitiveGameState:
-        """
-        Thực hiện hành động đồng thời cho cả 2 Agent.
-        """
+        # Không đi xuyên tường hoặc đi thẳng vào vị trí hiện tại của agent kia.
+        if next_pos in self.walls or next_pos == other_agent_pos:
+            return self._invalid_intent(agent_id, action, agent_pos)
+
+        # Nếu phía trước là box thì kiểm tra có đẩy được hay không.
+        if next_pos in boxes:
+            box_to = add_position(next_pos, delta)
+
+            if box_to in self.walls or box_to in boxes or box_to == other_agent_pos:
+                return self._invalid_intent(agent_id, action, agent_pos)
+
+            return {
+                "agent_id": agent_id,
+                "action": action,
+                "valid": True,
+                "end_pos": next_pos,
+                "box_from": next_pos,
+                "box_to": box_to,
+                "pushed": True,
+            }
+
+        # Đi vào ô trống.
+        return {
+            "agent_id": agent_id,
+            "action": action,
+            "valid": True,
+            "end_pos": next_pos,
+            "box_from": None,
+            "box_to": None,
+            "pushed": False,
+        }
+
+    @staticmethod
+    def _same_cell_conflict(intent1: Dict[str, object], intent2: Dict[str, object]) -> bool:
+        """Hai agent cùng muốn kết thúc ở một ô => cả hai bị hủy."""
+        return bool(
+            intent1["valid"]
+            and intent2["valid"]
+            and intent1["end_pos"] == intent2["end_pos"]
+        )
+
+    @staticmethod
+    def _swap_conflict(
+        state: CompetitiveGameState,
+        intent1: Dict[str, object],
+        intent2: Dict[str, object],
+    ) -> bool:
+        """Hai agent đổi chỗ cho nhau trong 1 turn => vi phạm 'cannot pass through'."""
+        return bool(
+            intent1["valid"]
+            and intent2["valid"]
+            and intent1["end_pos"] == state.agent2_pos
+            and intent2["end_pos"] == state.agent1_pos
+        )
+
+    @staticmethod
+    def _box_conflict(intent1: Dict[str, object], intent2: Dict[str, object]) -> bool:
+        """Kiểm tra xung đột liên quan đến box khi hai action xảy ra đồng thời."""
+        if not (intent1["valid"] and intent2["valid"]):
+            return False
+
+        box_from1, box_to1 = intent1["box_from"], intent1["box_to"]
+        box_from2, box_to2 = intent2["box_from"], intent2["box_to"]
+
+        # Cả hai cùng tác động một box.
+        if box_from1 is not None and box_from1 == box_from2:
+            return True
+
+        # Hai box khác nhau nhưng cùng bị đẩy vào một destination.
+        if box_to1 is not None and box_to1 == box_to2:
+            return True
+
+        # Agent bên này muốn đứng đúng ô mà box bên kia sẽ chiếm sau turn.
+        if box_to1 is not None and intent2["end_pos"] == box_to1:
+            return True
+        if box_to2 is not None and intent1["end_pos"] == box_to2:
+            return True
+
+        return False
+
+    def apply_joint_actions(
+        self,
+        state: CompetitiveGameState,
+        action1: str,
+        action2: str,
+    ) -> CompetitiveGameState:
+        """Thực hiện 2 action đồng thời và trả về CompetitiveGameState mới."""
         if state.steps_left <= 0:
             return state
 
-        boxes = set(state.boxes)
+        original_boxes = set(state.boxes)
         owners = state.get_owner_dict()
 
-        #Thử tính nước đi riêng cho từng Agent
-        next_a1, boxes_a1, owners_a1, valid1 = self._try_move_agent(
-            1, state.agent1_pos, state.agent2_pos, action1, boxes, owners
+        # Cả hai intent được tính từ CHÍNH state trước turn.
+        intent1 = self._build_intent(
+            1,
+            state.agent1_pos,
+            state.agent2_pos,
+            action1,
+            original_boxes,
         )
-        next_a2, boxes_a2, owners_a2, valid2 = self._try_move_agent(
-            2, state.agent2_pos, state.agent1_pos, action2, boxes, owners
+        intent2 = self._build_intent(
+            2,
+            state.agent2_pos,
+            state.agent1_pos,
+            action2,
+            original_boxes,
         )
 
-        #Xử lý va chạm đồng thời khi cả 2 cùng muốn vào 1 ô
-        if valid1 and valid2 and next_a1 == next_a2:
-            #hai Agent đụng nhau
-            next_a1, next_a2 = state.agent1_pos, state.agent2_pos
-            final_boxes = state.boxes
-            final_owners = state.box_owners
-        else:
-            final_boxes = set(state.boxes)
-            final_owners = dict(owners)
+        # Nếu có conflict đồng thời thì hủy cả hai intent.
+        has_conflict = (
+            self._same_cell_conflict(intent1, intent2)
+            or self._swap_conflict(state, intent1, intent2)
+            or self._box_conflict(intent1, intent2)
+        )
 
-            #Nếu Agent 1 di chuyển hợp lệ
-            if valid1:
-                final_boxes = boxes_a1
-                final_owners = owners_a1
-            else:
-                next_a1 = state.agent1_pos
+        if has_conflict:
+            intent1 = self._invalid_intent(1, str(intent1["action"]), state.agent1_pos)
+            intent2 = self._invalid_intent(2, str(intent2["action"]), state.agent2_pos)
 
-            #Nếu Agent 2 di chuyển hợp lệ
-            if valid2:
-                #Trường hợp đặc biệt: Cả 2 cùng hợp lệ và đẩy 2 thùng khác nhau
-                if valid1:
-                    #Gộp kết quả đẩy thùng của Agent 2 vào Agent 1
-                    final_boxes = boxes_a1.intersection(boxes_a2).union(
-                        boxes_a1 - state.boxes, boxes_a2 - state.boxes
-                    )
-                    final_owners.update(owners_a2)
-                else:
-                    final_boxes = boxes_a2
-                    final_owners = owners_a2
-            else:
-                next_a2 = state.agent2_pos
+        final_boxes = set(original_boxes)
+        final_owners = dict(owners)
 
-            #Chuyển đổi dict về tuple để lưu vào frozen state
-            final_owners_tuple = tuple(final_owners.items())
+        # Sau khi resolve conflict xong mới thật sự apply các box move.
+        if intent1["valid"] and intent1["box_from"] is not None:
+            self._apply_box_move(
+                final_boxes,
+                final_owners,
+                intent1["box_from"],
+                intent1["box_to"],
+                1,
+            )
+
+        if intent2["valid"] and intent2["box_from"] is not None:
+            self._apply_box_move(
+                final_boxes,
+                final_owners,
+                intent2["box_from"],
+                intent2["box_to"],
+                2,
+            )
+
+        next_a1 = intent1["end_pos"] if intent1["valid"] else state.agent1_pos
+        next_a2 = intent2["end_pos"] if intent2["valid"] else state.agent2_pos
 
         return CompetitiveGameState(
             agent1_pos=next_a1,
             agent2_pos=next_a2,
             boxes=frozenset(final_boxes),
-            box_owners=tuple(final_owners_tuple if 'final_owners_tuple' in locals() else state.box_owners),
-            steps_left=state.steps_left - 1
+            box_owners=tuple(sorted(final_owners.items())),
+            steps_left=state.steps_left - 1,
         )

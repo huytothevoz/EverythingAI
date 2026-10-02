@@ -1,0 +1,11 @@
+Runtime target required by the assignment:
+- macOS 13.7.8 Ventura, Intel Core i5
+- Python 3.10-3.12 recommended
+- pygame==2.6.1
+
+Install:
+    python -m pip install -r requirements.txt
+
+Notes:
+- All other imports in the project are from Python's standard library.
+- pygame 2.6.1 publishes x86_64 macOS wheels for supported CPython versions.
