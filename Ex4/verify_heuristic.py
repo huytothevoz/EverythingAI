@@ -12,7 +12,7 @@ from Ex2.search_algorithms import chebyshev_heuristic, ucs_search
 
 
 def reachable_states(game):
-    """Liệt kê toàn bộ state reachable theo transition model của Requirement 1."""
+    """Liệt kê các state có thể đi tới từ initial state."""
     queue = deque([game.initial_state])
     seen = {game.initial_state}
     states = []
@@ -30,13 +30,13 @@ def reachable_states(game):
 
 
 def optimal_remaining_cost(game, state):
-    """Dùng UCS để tính h*(s): optimal remaining cost từ state tới goal."""
+    """Dùng UCS để tính chi phí tối ưu còn lại từ một state."""
     path, cost, _ = ucs_search(game, start_state=state)
     return None if path is None else cost
 
 
 def verify_consistency(game, states):
-    """Kiểm tra h(s) <= c(s,a,s') + h(s') trên mọi edge reachable."""
+    """Kiểm tra consistency trên các cạnh reachable."""
     checked_edges = 0
     violations = 0
     max_violation = 0
@@ -57,11 +57,7 @@ def verify_consistency(game, states):
 
 
 def sample_states_evenly(states, sample_limit=None):
-    """Lấy mẫu trải đều trên toàn danh sách reachable state.
-
-    Map nhỏ được kiểm tra toàn bộ. Với map lớn, sampling giúp thời gian chạy
-    thực nghiệm hợp lý nhưng tránh thiên lệch do chỉ lấy 100 state đầu BFS.
-    """
+    """Lấy mẫu state trải đều; map nhỏ sẽ kiểm tra toàn bộ."""
     if sample_limit is None or len(states) <= sample_limit:
         return list(states), "all"
 
@@ -78,7 +74,7 @@ def sample_states_evenly(states, sample_limit=None):
 
 
 def verify_admissibility(game, states, sample_limit=None):
-    """Kiểm tra thực nghiệm h(s) <= h*(s) trên toàn bộ hoặc tập state lấy mẫu."""
+    """Kiểm tra admissibility trên toàn bộ hoặc tập state lấy mẫu."""
     sampled_states, sampling_mode = sample_states_evenly(states, sample_limit)
 
     checked = 0
@@ -90,7 +86,7 @@ def verify_admissibility(game, states, sample_limit=None):
         h_value = chebyshev_heuristic(state, game)
         optimal_cost = optimal_remaining_cost(game, state)
 
-        # State không tới được goal thì h*(s) = infinity; bỏ qua khi so finite cost.
+        # Bỏ state không thể đi tới goal khi kiểm tra admissibility.
         if optimal_cost is None:
             unsolvable += 1
             continue
@@ -118,7 +114,7 @@ def main():
     experiments = [
         ("testmap", os.path.join(root_dir, "Ex1", "testmap.txt"), None),
         ("benchmark_1box", os.path.join(root_dir, "Ex3", "maps", "benchmark_1box.txt"), None),
-        # Map 2 box có nhiều state: kiểm tra consistency toàn bộ, admissibility lấy 100 state trải đều.
+        # Map lớn: kiểm tra consistency toàn bộ và lấy mẫu 100 state cho admissibility.
         ("benchmark_2box", os.path.join(root_dir, "Ex3", "maps", "benchmark_2box.txt"), 100),
     ]
 

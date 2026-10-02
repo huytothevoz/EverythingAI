@@ -6,7 +6,7 @@ from typing import Optional, Tuple
 
 import pygame
 
-# Thêm root project vào sys.path khi chạy trực tiếp menu_ui.py.
+# Thêm root project khi chạy file trực tiếp.
 ROOT = os.path.dirname(os.path.abspath(__file__))
 if ROOT not in sys.path:
     sys.path.append(ROOT)
@@ -25,7 +25,7 @@ class VisualMenuUI:
     def __init__(self) -> None:
         pygame.init()
 
-        # Chọn kích thước ban đầu vừa màn hình thay vì cố định cứng.
+        # Chọn kích thước ban đầu theo màn hình.
         info = pygame.display.Info()
         screen_w = info.current_w or 1280
         screen_h = info.current_h or 800
@@ -40,17 +40,17 @@ class VisualMenuUI:
         self.assets = AssetManager()
         self.window_w, self.window_h = self.screen.get_size()
 
-        # State hover để tạo hiệu ứng card nổi lên nhẹ.
+        # Lưu card đang hover.
         self.hover_mode: Optional[str] = None
         self._recalculate_layout(self.window_w, self.window_h)
 
-    # P1 - Reponsive
+    # Layout responsive
     @staticmethod
     def _clamp(value: float, low: float, high: float) -> float:
         return max(low, min(high, value))
 
     def _init_fonts(self) -> None:
-        """Scale font theo cửa sổ để menu không bị tràn chữ khi resize."""
+        """Scale font theo kích thước cửa sổ."""
         scale = self._clamp(min(self.window_w / 1180, self.window_h / 820), 0.68, 1.18)
         self.ui_scale = scale
 
@@ -63,8 +63,8 @@ class VisualMenuUI:
         self.font_badge = pygame.font.SysFont("Segoe UI", max(11, int(13 * scale)), bold=True)
 
     def _recalculate_layout(self, width: int, height: int, recreate_window: bool = True) -> None:
-        """Tính lại vị trí card khi cửa sổ full, normal hoặc snap nửa màn hình."""
-        # Không ép window quay về size lớn; chỉ giữ mức tối thiểu đủ dùng.
+        """Tính lại layout khi cửa sổ thay đổi kích thước."""
+        # Giữ kích thước tối thiểu để UI không vỡ.
         self.window_w = max(560, int(width))
         self.window_h = max(500, int(height))
 
@@ -100,7 +100,7 @@ class VisualMenuUI:
         content_h = max(250, content_bottom - content_top)
         content_w = self.window_w - 2 * margin
 
-        # Window rộng -> 2 card ngang. Window hẹp -> 2 card xếp dọc.
+        # Rộng thì xếp ngang, hẹp thì xếp dọc.
         self.horizontal_cards = self.window_w >= 820
         card_gap = max(16, int(24 * self.ui_scale))
 
@@ -115,19 +115,19 @@ class VisualMenuUI:
             self.comp_card = pygame.Rect(margin, content_top + card_h + card_gap, content_w, card_h)
 
 
-    # P2 - Hàm vẽ chung
+    # Hàm vẽ
     def _draw_background(self) -> None:
-        """Reuse background voxel từ bộ asset của Task 5 / Task 8."""
+        """Vẽ background dùng chung."""
         bg = self.assets.get_scaled("background", (self.window_w, self.window_h))
         self.screen.blit(bg, (0, 0))
 
-        # Lớp tối nhẹ giúp card trắng/colored nổi lên rõ hơn.
+        # Lớp tối nhẹ để card nổi hơn.
         shade = pygame.Surface((self.window_w, self.window_h), pygame.SRCALPHA)
         shade.fill((24, 39, 61, 48))
         self.screen.blit(shade, (0, 0))
 
     def _draw_header(self) -> None:
-        """Header của launcher; không lặp header Task 5 / Task 8."""
+        """Vẽ header của menu."""
         shadow = self.header_rect.move(0, 5)
         pygame.draw.rect(self.screen, (0, 0, 0, 42), shadow, border_radius=24)
         pygame.draw.rect(self.screen, (255, 255, 255), self.header_rect, border_radius=24)
@@ -144,12 +144,12 @@ class VisualMenuUI:
         title_y = self.header_rect.y + max(10, int(16 * self.ui_scale))
         self.screen.blit(title, (title_x, title_y))
 
-        # Chỉ vẽ subtitle nếu chiều ngang đủ; window hẹp thì ưu tiên title.
+        # Hẹp thì ưu tiên title.
         if subtitle.get_width() <= self.header_rect.width - 2 * (title_x - self.header_rect.x):
             self.screen.blit(subtitle, (title_x, title_y + title.get_height() + 3))
 
     def _fit_image(self, key: str, rect: pygame.Rect, max_ratio: float = 0.48) -> pygame.Surface:
-        """Scale agent theo card mà không làm méo ảnh."""
+        """Scale ảnh agent theo card."""
         max_side = max(56, int(min(rect.width, rect.height) * max_ratio))
         return self.assets.get_scaled(key, (max_side, max_side))
 
@@ -164,7 +164,7 @@ class VisualMenuUI:
         agent_keys: Tuple[str, ...],
         badges: Tuple[str, ...],
     ) -> None:
-        """Vẽ một card mode. Click toàn card đều mở game."""
+        """Vẽ card chọn mode."""
         hovered = self.hover_mode == mode
         lift = max(2, int(5 * self.ui_scale)) if hovered else 0
         draw_rect = rect.move(0, -lift)
@@ -172,7 +172,7 @@ class VisualMenuUI:
         shadow = rect.move(0, max(5, int(8 * self.ui_scale)))
         pygame.draw.rect(self.screen, (0, 0, 0, 60), shadow, border_radius=26)
 
-        # Card dùng trắng mờ + accent màu ở trên để nhìn hiện đại nhưng dễ đọc.
+        # Card trắng với màu nhấn theo mode.
         pygame.draw.rect(self.screen, (250, 252, 255), draw_rect, border_radius=26)
         pygame.draw.rect(
             self.screen,
@@ -188,7 +188,7 @@ class VisualMenuUI:
 
         pad = max(14, int(22 * self.ui_scale))
 
-        # Ảnh nhân vật nằm ở nửa trên của card.
+        # Ảnh nhân vật ở phần trên card.
         if len(agent_keys) == 1:
             img = self._fit_image(agent_keys[0], draw_rect)
             image_y = draw_rect.y + accent_h + max(8, int(12 * self.ui_scale))
@@ -206,7 +206,7 @@ class VisualMenuUI:
             self.screen.blit(img2, (start_x + img1.get_width() + gap, image_y))
             text_start_y = image_y + max_side + max(4, int(8 * self.ui_scale))
 
-        # Với window thấp, giảm khoảng cách để text không rớt khỏi card.
+        # Giảm khoảng cách khi cửa sổ thấp.
         if draw_rect.height < 330:
             text_start_y = min(text_start_y, draw_rect.y + int(draw_rect.height * 0.50))
 
@@ -224,7 +224,7 @@ class VisualMenuUI:
         if desc_y + desc_surface.get_height() < draw_rect.bottom - 78:
             self.screen.blit(desc_surface, desc_surface.get_rect(center=(draw_rect.centerx, desc_y)))
 
-        # Badges giúp người dùng nhìn nhanh thuật toán của mode.
+        # Badge hiển thị thuật toán chính.
         badge_y = min(draw_rect.bottom - 70, desc_y + desc_surface.get_height() + 16)
         badge_surfaces = []
         for badge in badges:
@@ -242,7 +242,7 @@ class VisualMenuUI:
             self.screen.blit(text_surface, text_surface.get_rect(center=badge_rect.center))
             bx += bw + 8
 
-        # Nút PLAY ở đáy card; click card hay nút đều dùng cùng mode.
+        # Click card hoặc nút đều mở mode.
         button_w = min(max(140, int(190 * self.ui_scale)), draw_rect.width - 2 * pad)
         button_h = max(38, int(46 * self.ui_scale))
         button_rect = pygame.Rect(0, 0, button_w, button_h)
@@ -259,7 +259,7 @@ class VisualMenuUI:
         text = "Click a mode  |  Keyboard: 1 = Single Agent, 2 = Competitive, ESC = Exit"
         surface = self.font_body.render(text, True, self.MUTED)
 
-        # Tránh text tràn footer khi cửa sổ hẹp.
+        # Thu gọn footer khi cửa sổ hẹp.
         if surface.get_width() > self.footer_rect.width - 24:
             text = "1: Single Agent   |   2: Competitive   |   ESC: Exit"
             surface = self.font_body.render(text, True, self.MUTED)
@@ -293,10 +293,10 @@ class VisualMenuUI:
 
         self._draw_footer()
 
-    # P3 - Điều hướng T5/ T8
+    # Điều hướng Task 5 và Task 8
 
     def _restore_menu_window(self) -> None:
-        """Khôi phục lại cửa sổ menu sau khi đóng Task 5 hoặc Task 8."""
+        """Khôi phục menu sau khi đóng game."""
         pygame.init()
         self.screen = pygame.display.set_mode(
             (self.window_w, self.window_h),
@@ -306,13 +306,12 @@ class VisualMenuUI:
         ensure_native_window_chrome()
         self.clock = pygame.time.Clock()
 
-        # Pygame display được tạo lại nên ảnh convert() cũ có thể phụ thuộc display cũ.
-        # Load lại AssetManager để chắc chắn tương thích sau khi quay về menu.
+        # Load lại asset sau khi quay về menu.
         self.assets = AssetManager()
         self._recalculate_layout(self.window_w, self.window_h, recreate_window=False)
 
     def _launch_single_agent(self) -> None:
-        """Điều hướng tới Requirement 5, không copy bất kỳ logic solver nào."""
+        """Mở single-agent mode."""
         from Ex5.sokoban_ui import main as run_single_agent
 
         pygame.quit()
@@ -320,7 +319,7 @@ class VisualMenuUI:
         self._restore_menu_window()
 
     def _launch_competitive(self) -> None:
-        """Điều hướng tới Requirement 8, mặc định trận đấu 30 turns."""
+        """Mở competitive mode."""
         from Ex8.competitive_ui import main as run_competitive
 
         pygame.quit()
@@ -333,7 +332,7 @@ class VisualMenuUI:
         elif mode == "competitive":
             self._launch_competitive()
 
- #P4 - Event Loop
+# Event loop
     def run(self) -> None:
         running = True
         window_resized_event = getattr(pygame, "WINDOWRESIZED", -9999)
@@ -377,7 +376,7 @@ class VisualMenuUI:
 
 
 def main() -> None:
-    """Cho phép chạy trực tiếp: python menu_ui.py"""
+    """Entry point của menu."""
     app = VisualMenuUI()
     app.run()
 

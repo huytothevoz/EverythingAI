@@ -24,7 +24,7 @@ from Ex7.agent2 import choose_action as agent2_choose_action
 class CompetitiveUI(ResponsiveSokobanUIBase):
     """Giao diện chính của Requirement 8."""
 
-    # Màu dùng để phân biệt ownership của water dispenser.
+    # Màu box đã hoàn thành của từng agent.
     OWNER1 = (255, 112, 88)
     OWNER2 = (80, 194, 114)
     OWNER0 = (245, 191, 64)
@@ -34,7 +34,7 @@ class CompetitiveUI(ResponsiveSokobanUIBase):
         self.game = CompetitiveSokobanGame(map_path, max_steps=max_steps)
         rows, cols = self._get_map_dimensions()
 
-        # Dùng đúng base responsive UI của Requirement 5.
+        # Dùng lại base UI của Task 5.
         super().__init__(
             rows=rows,
             cols=cols,
@@ -46,7 +46,7 @@ class CompetitiveUI(ResponsiveSokobanUIBase):
 
         self.reset_state()
 
-    # PHẦN 1 - RESPONSIVE SETTINGS RIÊNG CỦA TASK 8
+    # Thiết lập layout
     def _get_map_dimensions(self) -> Tuple[int, int]:
         state = self.game.initial_state
         positions = (
@@ -58,11 +58,11 @@ class CompetitiveUI(ResponsiveSokobanUIBase):
         return max(r for r, _ in positions) + 1, max(c for _, c in positions) + 1
 
     def _get_panel_layout_settings(self) -> Tuple[int, int]:
-        """Panel competitive tự đổi 4 cột <-> 2x2 tùy chiều rộng."""
+        """Đổi cách xếp panel theo chiều rộng."""
         self.chip_cols = 4 if self.window_w >= 720 else 2
         self.chip_rows = 1 if self.chip_cols == 4 else 2
 
-        # Window thấp thì ẩn legend/help để board và control không bị tràn.
+        # Cửa sổ thấp thì ưu tiên board và control.
         self.show_legend = self.window_h >= 640 and self.window_w >= 720
 
         status_h = max(18, self.font_body.get_height())
@@ -81,9 +81,9 @@ class CompetitiveUI(ResponsiveSokobanUIBase):
         help_h = max(24, int(32 * self.ui_scale)) if self.window_h >= 560 else 0
         return panel_h, help_h
 
-    # PHẦN 2 - STATE / GAME LOOP
+    # State và game loop
     def reset_state(self) -> None:
-        """Reset match nhưng giữ nguyên game engine và max_steps."""
+        """Reset trận đấu về state ban đầu."""
         self.history_states = [self.game.initial_state]
         self.history_actions = []
         self.history_times = []
@@ -96,7 +96,7 @@ class CompetitiveUI(ResponsiveSokobanUIBase):
         self.last_times = (0.0, 0.0)
 
     def go_to_step(self, step: int) -> None:
-        """Lùi/tiến đến state đã có trong history."""
+        """Di chuyển tới một state trong history."""
         if 0 <= step < len(self.history_states):
             self.current_step = step
             self.current_state = self.history_states[step]
@@ -109,7 +109,7 @@ class CompetitiveUI(ResponsiveSokobanUIBase):
                 self.last_times = self.history_times[step - 1]
 
     def compute_next_turn(self) -> None:
-        """Cho hai agent suy nghĩ từ cùng pre-turn state rồi apply đồng thời."""
+        """Cho hai agent chọn action từ cùng state đầu turn."""
         if self.current_state.steps_left <= 0:
             self.is_playing = False
             self.is_paused = True
@@ -117,17 +117,17 @@ class CompetitiveUI(ResponsiveSokobanUIBase):
 
         state_before_turn = self.current_state
 
-        # Agent 1 - GBFS.
+        # Agent 1 dùng GBFS.
         start = time.perf_counter()
         action1 = agent1_choose_action(self.game, state_before_turn, 1000)
         t1_ms = (time.perf_counter() - start) * 1000
 
-        # Agent 2 - A*. Quan trọng: vẫn nhận cùng state_before_turn.
+        # Agent 2 dùng A* và nhận cùng state đầu turn.
         start = time.perf_counter()
         action2 = agent2_choose_action(self.game, state_before_turn, 1000)
         t2_ms = (time.perf_counter() - start) * 1000
 
-        # Luật simultaneous action nằm ở Ex6, Task 8 chỉ gọi lại.
+        # Ex6 xử lý hai action đồng thời.
         next_state = self.game.apply_joint_actions(
             state_before_turn,
             action1,
@@ -144,15 +144,15 @@ class CompetitiveUI(ResponsiveSokobanUIBase):
         self.last_times = (t1_ms, t2_ms)
 
     def step_forward(self) -> None:
-        """Đọc state đã có trong history hoặc tính một turn mới nếu cần."""
+        """Đi tới state cũ hoặc tính thêm một turn."""
         if self.current_step < len(self.history_states) - 1:
             self.go_to_step(self.current_step + 1)
         else:
             self.compute_next_turn()
 
-    # PHẦN 3 - RENDER RIÊNG CỦA COMPETITIVE MODE
+    # Vẽ competitive mode
     def _draw_board(self) -> None:
-        """Vẽ map, 2 agent và water-dispenser ownership bằng asset của Task 5."""
+        """Vẽ map, hai agent và trạng thái các box."""
         radius = max(8, int(22 * self.ui_scale))
         pygame.draw.rect(self.screen, Theme.CARD, self.board_card, border_radius=radius)
         pygame.draw.rect(
@@ -169,7 +169,8 @@ class CompetitiveUI(ResponsiveSokobanUIBase):
         agent2 = self.assets.get_scaled("agent2", (self.cell_size, self.cell_size))
 
         owners = self.current_state.get_owner_dict()
-        water_dispenser_neutral = self.assets.get_tinted_water_dispenser(self.cell_size, self.OWNER0, "N")
+        water_dispenser = self.assets.get_scaled("water_dispenser", (self.cell_size, self.cell_size))
+        water_dispenser_neutral = self.assets.get_tinted_water_dispenser(self.cell_size, self.OWNER0, "OK")
         water_dispenser_1 = self.assets.get_tinted_water_dispenser(self.cell_size, self.OWNER1, "A1")
         water_dispenser_2 = self.assets.get_tinted_water_dispenser(self.cell_size, self.OWNER2, "A2")
 
@@ -189,25 +190,27 @@ class CompetitiveUI(ResponsiveSokobanUIBase):
                     self._draw_goal_marker(x, y)
 
                 if pos in self.current_state.boxes:
-                    owner = owners.get(pos, 0)
-
-                    if owner == 1:
-                        water_dispenser_img = water_dispenser_1
-                    elif owner == 2:
-                        water_dispenser_img = water_dispenser_2
+                    if pos not in self.game.red_points:
+                        water_dispenser_img = water_dispenser
                     else:
-                        water_dispenser_img = water_dispenser_neutral
+                        owner = owners.get(pos, 0)
+                        if owner == 1:
+                            water_dispenser_img = water_dispenser_1
+                        elif owner == 2:
+                            water_dispenser_img = water_dispenser_2
+                        else:
+                            water_dispenser_img = water_dispenser_neutral
 
                     self.screen.blit(water_dispenser_img, (x, y))
 
-                # Nam = Agent 1, nữ = Agent 2; không cần chấm màu trên đầu nữa.
+                # Agent 1 là nam, Agent 2 là nữ.
                 if pos == self.current_state.agent1_pos:
                     self.screen.blit(agent1, (x, y))
                 elif pos == self.current_state.agent2_pos:
                     self.screen.blit(agent2, (x, y))
 
     def _draw_panel(self) -> None:
-        """Scoreboard + decision time + legend ownership."""
+        """Vẽ điểm số, thời gian và chú thích owner."""
         radius = max(7, int(18 * self.ui_scale))
         pygame.draw.rect(self.screen, Theme.CARD, self.panel_rect, border_radius=radius)
         pygame.draw.rect(
@@ -306,7 +309,7 @@ class CompetitiveUI(ResponsiveSokobanUIBase):
         self._draw_button(self.btn_right, "Reset", Theme.BTN_PINK)
         self._draw_panel()
 
-    # PHẦN 4 - EVENT LOOP
+    # Event loop
     def run(self) -> None:
         running = True
         window_resized_event = getattr(pygame, "WINDOWRESIZED", -9999)
@@ -359,12 +362,11 @@ class CompetitiveUI(ResponsiveSokobanUIBase):
             pygame.display.flip()
             self.clock.tick(Theme.FPS)
 
-        # Chỉ đóng cửa sổ hiện tại rồi return.
-        # Không sys.exit() vì UI có thể được gọi từ menu_ui.py hoặc main.py.
+        # Đóng UI rồi quay về menu gọi nó.
         pygame.quit()
         return
 
-# PHẦN 5 - CHẠY TRỰC TIẾP TASK 8
+# Chạy trực tiếp Task 8
 def default_map_path() -> str:
     current_dir = os.path.dirname(os.path.abspath(__file__))
     return os.path.join(current_dir, "..", "Ex6", "competitive_map.txt")

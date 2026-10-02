@@ -1,4 +1,4 @@
-# Requirement 7 - chạy hai agent cạnh tranh bằng terminal.
+# Chạy hai agent cạnh tranh trên terminal.
 
 from __future__ import annotations
 
@@ -74,7 +74,7 @@ def run_match(
     while state.steps_left > 0:
         turn += 1
 
-        # Hai agent đều được truyền chính state hiện tại trước turn.
+        # Hai agent cùng đọc state đầu turn.
         start = time.perf_counter()
         action1 = agent1_choose_action(game, state, time_limit_ms)
         t1_ms = (time.perf_counter() - start) * 1000
@@ -83,7 +83,7 @@ def run_match(
         action2 = agent2_choose_action(game, state, time_limit_ms)
         t2_ms = (time.perf_counter() - start) * 1000
 
-        # Chỉ sau khi cả hai đã chọn xong mới apply simultaneous action ở Ex6.
+        # Sau khi cả hai chọn xong mới cập nhật state.
         state = game.apply_joint_actions(state, action1, action2)
         scores = game.get_scores(state)
 

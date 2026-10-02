@@ -6,11 +6,11 @@ from typing import Dict, Optional, Tuple
 
 import pygame
 
-# Root project để tìm thư mục assets.
+# Root project để tìm assets.
 PARENT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
-# P1 - Hỗ trợ cửa sổ native windows
+# Hỗ trợ cửa sổ native
 def ensure_native_window_chrome() -> None:
     if sys.platform != "win32":
         return
@@ -47,18 +47,18 @@ def ensure_native_window_chrome() -> None:
             SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED,
         )
     except Exception:
-        # Phần native chỉ để tăng tương thích, không được làm crash game.
+        # Lỗi native window không làm dừng game.
         pass
 
 
-# P2 - Theme chung
+# Theme dùng chung
 class Theme:
     """Các hằng số chung; kích thước thực tế sẽ scale theo cửa sổ."""
 
     FPS = 60
     AUTO_STEP_SEC = 0.35
 
-    # Mốc tham chiếu responsive, KHÔNG phải kích thước bị ép cố định.
+    # Kích thước tham chiếu để tính responsive.
     DESIGN_W = 1200
     DESIGN_H = 850
     BASE_CELL = 72
@@ -81,13 +81,9 @@ class Theme:
     GOLD_DARK = (214, 146, 17)
 
 
-# P3 - Manage Asset
+# Quản lý asset
 class AssetManager:
-    """Load ảnh một lần rồi cache phiên bản đã scale.
-
-    Task 5 và Task 8 cùng dùng chính object này nên không còn mỗi Task tự load
-    một bộ asset riêng theo cách khác nhau.
-    """
+    """Load và cache asset dùng chung cho Task 5 và Task 8."""
 
     def __init__(self) -> None:
         asset_dir = os.path.join(PARENT_DIR, "assets")
@@ -107,7 +103,7 @@ class AssetManager:
         return image.convert_alpha() if alpha else image.convert()
 
     def get_scaled(self, key: str, size: Tuple[int, int]) -> pygame.Surface:
-        """Scale ảnh theo size và cache để không smoothscale lại mỗi frame."""
+        """Scale ảnh và lưu vào cache."""
         safe_size = (max(1, int(size[0])), max(1, int(size[1])))
         cache_key = (key, safe_size)
 
@@ -125,7 +121,7 @@ class AssetManager:
         color: Tuple[int, int, int],
         label: Optional[str] = None,
     ) -> pygame.Surface:
-        """Tạo cây nước có màu đánh dấu ownership cho chế độ competitive."""
+        """Tạo water dispenser có màu theo owner."""
 
         base = self.get_scaled(
             "water_dispenser",
@@ -205,7 +201,7 @@ class AssetManager:
         return base
 
 
-# P4 - BASE UI
+# Base UI
 class ResponsiveSokobanUIBase:
     def __init__(
         self,
@@ -223,7 +219,7 @@ class ResponsiveSokobanUIBase:
         self.initial_width_ratio = initial_width_ratio
         self.initial_height_ratio = initial_height_ratio
 
-        # SDL_VIDEO_CENTERED giúp cửa sổ mặc định xuất hiện giữa màn hình.
+        # Mở cửa sổ ở giữa màn hình.
         os.environ.setdefault("SDL_VIDEO_CENTERED", "1")
         pygame.init()
         pygame.display.set_caption(window_title)
@@ -239,7 +235,7 @@ class ResponsiveSokobanUIBase:
         self._recalculate_layout(self.window_w, self.window_h, recreate_window=False)
 
     def _choose_initial_window_size(self) -> Tuple[int, int]:
-        """Chọn size mặc định theo desktop, không hard-code một window quá lớn."""
+        """Chọn kích thước cửa sổ ban đầu theo desktop."""
         info = pygame.display.Info()
         desktop_w = max(800, info.current_w)
         desktop_h = max(600, info.current_h)
@@ -247,7 +243,7 @@ class ResponsiveSokobanUIBase:
         width = min(1240, int(desktop_w * self.initial_width_ratio))
         height = min(820, int(desktop_h * self.initial_height_ratio))
 
-        # Đây chỉ là size mở ban đầu. Sau đó user resize nhỏ/lớn tự do.
+        # Kích thước ban đầu, người dùng vẫn có thể resize.
         width = max(680, width)
         height = max(520, height)
         return width, height
@@ -257,7 +253,7 @@ class ResponsiveSokobanUIBase:
         return max(low, min(high, value))
 
     def _init_fonts_for_scale(self, scale: float) -> None:
-        """Font scale theo cửa sổ để không bị tràn khi snap nửa màn hình."""
+        """Scale font theo cửa sổ."""
         self.font_title = pygame.font.SysFont("Segoe UI", max(18, int(32 * scale)), bold=True)
         self.font_subtitle = pygame.font.SysFont("Segoe UI", max(11, int(18 * scale)), bold=True)
         self.font_body = pygame.font.SysFont("Segoe UI", max(11, int(16 * scale)))
@@ -298,7 +294,7 @@ class ResponsiveSokobanUIBase:
         self.panel_h, self.help_h = self._get_panel_layout_settings()
         self.show_help = self.help_h > 0
 
-        # Tổng chiều cao ngoài board.
+        # Phần chiều cao dành cho header, panel và control.
         reserved_h = (
             self.outer
             + self.header_h
@@ -341,7 +337,7 @@ class ResponsiveSokobanUIBase:
         self.board_x = self.board_card.x + self.card_pad
         self.board_y = self.board_card.y + self.card_pad
 
-        # Ba button dùng chung: left / middle / right.
+        # Ba nút điều khiển dùng chung.
         button_area_w = min(
             max(220, self.window_w - 2 * self.outer),
             max(300, int(600 * self.ui_scale)),
@@ -383,12 +379,12 @@ class ResponsiveSokobanUIBase:
         else:
             self.help_rect = pygame.Rect(0, 0, 0, 0)
 
-    # Drawing helper chung
+    # Hàm vẽ dùng chung
     def _draw_background(self) -> None:
         bg = self.assets.get_scaled("background", (self.window_w, self.window_h))
         self.screen.blit(bg, (0, 0))
 
-        # Lớp trắng mờ để card/text nổi rõ hơn trên background.
+        # Lớp phủ nhẹ để chữ dễ đọc.
         veil = pygame.Surface((self.window_w, self.window_h), pygame.SRCALPHA)
         veil.fill((255, 255, 255, 24))
         self.screen.blit(veil, (0, 0))
@@ -401,7 +397,7 @@ class ResponsiveSokobanUIBase:
         min_size: int,
         bold: bool = True,
     ) -> pygame.font.Font:
-        """Giảm font đến khi text vừa max_width; dùng để tránh header bị tràn."""
+        """Giảm font tới khi text vừa chiều rộng."""
         size = max(min_size, start_size)
         while size > min_size:
             font = pygame.font.SysFont("Segoe UI", size, bold=bold)
@@ -411,7 +407,7 @@ class ResponsiveSokobanUIBase:
         return pygame.font.SysFont("Segoe UI", min_size, bold=bold)
 
     def _draw_header(self) -> None:
-        """Header responsive dùng chung cho Task 5 và Task 8."""
+        """Vẽ header dùng chung."""
         radius = max(10, int(20 * self.ui_scale))
         pygame.draw.rect(self.screen, Theme.WHITE, self.header_rect, border_radius=radius)
         pygame.draw.rect(
@@ -425,7 +421,7 @@ class ResponsiveSokobanUIBase:
         pad = max(8, int(14 * self.ui_scale))
         pill_h = max(30, self.header_rect.height - 2 * pad)
 
-        # Window hẹp: title chiếm phần lớn header, subtitle sẽ ẩn nếu không đủ chỗ.
+        # Ẩn subtitle nếu header quá hẹp.
         desired_pill_w = int(330 * self.ui_scale)
         max_pill_w = max(150, self.header_rect.width - 2 * pad)
         pill_w = min(desired_pill_w, max_pill_w)
@@ -458,7 +454,7 @@ class ResponsiveSokobanUIBase:
         subtitle_x = pill.right + pad
         subtitle_w = self.header_rect.right - pad - subtitle_x
 
-        # Chỉ vẽ subtitle khi còn đủ chỗ, tránh đè chữ như bản cũ.
+        # Chỉ vẽ subtitle khi còn đủ chỗ.
         if subtitle_w >= 170:
             subtitle_font = self._font_that_fits(
                 self.header_subtitle,
@@ -550,7 +546,7 @@ class ResponsiveSokobanUIBase:
         left = rect.x + max(5, int(11 * self.ui_scale))
         title_surface = self.font_chip_title.render(title, True, Theme.TEXT_DIM)
 
-        # Value có thể dài, nên tự giảm font để không tràn chip.
+        # Giảm font nếu value quá dài.
         value_font = self._font_that_fits(
             value,
             max_width=max(20, rect.width - 2 * (left - rect.x)),
@@ -595,14 +591,14 @@ class ResponsiveSokobanUIBase:
         surface = font.render(help_text, True, Theme.TEXT)
         self.screen.blit(surface, surface.get_rect(center=self.help_rect.center))
 
-    # Resize helper chung
+    # Xử lý resize
     def _handle_resize_event(self, event: pygame.event.Event) -> None:
-        """Tính lại UI theo size user vừa kéo, không ép ngược lên size lớn."""
+        """Tính lại layout sau khi resize."""
         if event.type == pygame.VIDEORESIZE:
             self._recalculate_layout(event.w, event.h, recreate_window=True)
             return
 
-        # pygame 2 có WINDOWRESIZED; lấy size thật của surface để đồng bộ.
+        # Đồng bộ lại kích thước surface sau resize.
         surface = pygame.display.get_surface()
         if surface is not None:
             self.screen = surface

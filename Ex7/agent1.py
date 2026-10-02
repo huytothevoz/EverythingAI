@@ -1,4 +1,4 @@
-# Agent 1: GBFS
+# Agent 1 dùng GBFS.
 
 from __future__ import annotations
 
@@ -34,11 +34,7 @@ def choose_action(
     state: CompetitiveGameState,
     time_limit_ms: int = 1000,
 ) -> str:
-    """Chọn 1 action bằng time-bounded GBFS.
-
-    GBFS chỉ ưu tiên h(n), nên node nào có competitive_heuristic nhỏ hơn sẽ
-    được mở trước. Agent chỉ thực hiện action đầu tiên rồi turn sau re-plan.
-    """
+    """Chọn một action bằng GBFS trong giới hạn thời gian."""
     if state.steps_left <= 0:
         return STAY
 
@@ -67,7 +63,7 @@ def choose_action(
             best_h = h_value
             best_state = current
 
-        # Nếu search tìm được state giúp Agent 1 tăng điểm thì dùng kế hoạch đó.
+        # Nếu tìm được state tăng điểm thì chọn ngay.
         if get_agent_score(game, current, AGENT_ID) > start_score:
             return get_first_action(parent, state, current)
 
@@ -75,7 +71,7 @@ def choose_action(
             continue
 
         for action in legal_actions(game, current, AGENT_ID, include_stay=False):
-            # Kiểm tra deadline ngay trong vòng sinh successor để không vượt 1000 ms.
+            # Dừng sớm nếu gần hết thời gian.
             if time.perf_counter() >= deadline:
                 break
             child = simulate_single_agent_action(game, current, AGENT_ID, action)
@@ -84,7 +80,7 @@ def choose_action(
             if child == current:
                 continue
 
-            # Với GBFS, giữ depth tốt nhất từng thấy cho cùng một state.
+            # Giữ depth tốt nhất cho mỗi state.
             if child_depth >= best_depth.get(child, 10**9):
                 continue
 
@@ -93,11 +89,11 @@ def choose_action(
             child_h = competitive_heuristic(game, child, AGENT_ID)
             heapq.heappush(pq, (child_h, next(counter), child_depth, child))
 
-    # Hết time/depth budget: dùng action đầu của state tốt nhất đã tìm được.
+    # Hết budget thì đi theo state tốt nhất đã tìm được.
     action = get_first_action(parent, state, best_state)
     if action != STAY:
         return action
 
-    # Nếu search chưa tạo được plan thì lấy một legal action làm fallback.
+    # Nếu chưa có plan thì lấy một action hợp lệ.
     actions = legal_actions(game, state, AGENT_ID, include_stay=True)
     return actions[0] if actions else STAY

@@ -11,7 +11,7 @@ from typing import Optional, Tuple
 
 import pygame
 
-# Cho phép chạy trực tiếp Ex5/sokoban_ui.py mà vẫn import được các Task trước.
+# Thêm root project để chạy file trực tiếp.
 PARENT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if PARENT_DIR not in sys.path:
     sys.path.append(PARENT_DIR)
@@ -29,7 +29,7 @@ class SokobanUI(ResponsiveSokobanUIBase):
         self.game = SokobanGame(map_path)
         rows, cols = self._get_map_dimensions()
 
-        # Base class lo cửa sổ, assets, resize, header, button, chip...
+        # Base class xử lý phần giao diện dùng chung.
         super().__init__(
             rows=rows,
             cols=cols,
@@ -37,7 +37,7 @@ class SokobanUI(ResponsiveSokobanUIBase):
             header_subtitle="Task 5 - Single Agent Visual Solver (UCS / A*)",
         )
 
-        # State dùng để phát lại lời giải.
+        # Lưu state để phát lại lời giải từng bước.
         self.current_state = self.game.initial_state
         self.solution_actions = []
         self.solution_states = [self.game.initial_state]
@@ -49,7 +49,7 @@ class SokobanUI(ResponsiveSokobanUIBase):
         self.nodes_expanded = 0
         self.solve_status = "Chọn thuật toán để giải map"
 
-    # PHẦN 1 - RESPONSIVE SETTINGS RIÊNG CỦA TASK 5
+    # Thiết lập layout
     def _get_map_dimensions(self) -> Tuple[int, int]:
         positions = (
             self.game.walls
@@ -75,11 +75,11 @@ class SokobanUI(ResponsiveSokobanUIBase):
             + self.gap
         )
 
-        # Khi window quá thấp thì ẩn help bar để ưu tiên board + control chính.
+        # Cửa sổ thấp thì ưu tiên board và nút điều khiển.
         help_h = max(24, int(32 * self.ui_scale)) if self.window_h >= 520 else 0
         return panel_h, help_h
 
-    # PHẦN 2 - SOLVER / STATE PLAYBACK
+    # Giải map và phát lại lời giải
     def reset_state(self) -> None:
         """Đưa game và animation về state ban đầu."""
         self.current_state = self.game.initial_state
@@ -94,12 +94,12 @@ class SokobanUI(ResponsiveSokobanUIBase):
         self.solve_status = "Đã reset. Chọn UCS hoặc A*."
 
     def run_solver(self, algorithm: str) -> None:
-        """Gọi trực tiếp UCS/A* ở Requirement 2 rồi dựng chuỗi state để animation."""
+        """Chạy UCS/A* và tạo danh sách state để phát animation."""
         self.reset_state()
         self.algorithm_name = algorithm
         self.solve_status = f"Đang chạy {algorithm}..."
 
-        # Vẽ 1 frame trước khi search để người dùng thấy trạng thái đang chạy.
+        # Vẽ frame trước khi bắt đầu search.
         self.draw_frame()
         pygame.display.flip()
 
@@ -114,7 +114,7 @@ class SokobanUI(ResponsiveSokobanUIBase):
             self.solve_status = "Không tìm thấy lời giải."
             return
 
-        # Ex2 trả về action; Ex5 dùng apply_action của Ex1 để dựng các state trung gian.
+        # Dựng lại từng state từ danh sách action.
         self.solution_actions = actions
         self.solution_states = [self.game.initial_state]
 
@@ -129,12 +129,12 @@ class SokobanUI(ResponsiveSokobanUIBase):
         self.last_step_time = time.time()
 
     def go_to_step(self, step: int) -> None:
-        """Nhảy tới một state trong solution để hỗ trợ Left/Right."""
+        """Di chuyển tới một bước trong lời giải."""
         if 0 <= step < len(self.solution_states):
             self.current_step = step
             self.current_state = self.solution_states[step]
 
-    # PHẦN 3 - RENDER RIÊNG CỦA SINGLE-AGENT
+    # Vẽ single-agent
     def _draw_map(self) -> None:
         """Vẽ board bằng asset chung ở ui_components.py."""
         radius = max(8, int(22 * self.ui_scale))
@@ -162,7 +162,7 @@ class SokobanUI(ResponsiveSokobanUIBase):
                     self.screen.blit(wall, (x, y))
                     continue
 
-                # Ô không phải wall đều dùng cùng floor asset.
+                # Ô trống và goal đều dùng floor tile.
                 self.screen.blit(floor, (x, y))
 
                 if pos in self.game.red_points:
@@ -170,14 +170,14 @@ class SokobanUI(ResponsiveSokobanUIBase):
 
                 if pos in self.current_state.boxes:
                     if pos in self.game.red_points:
-                        # Box đã được đưa vào designated point
+                        # Box đã nằm trên goal.
                         completed_dispenser = self.assets.get_tinted_water_dispenser(
                             self.cell_size,
                             Theme.SUCCESS,
                         )
                         self.screen.blit(completed_dispenser, (x, y))
                     else:
-                        # Box chưa vào designated point
+                        # Box chưa hoàn thành.
                         self.screen.blit(water_dispenser, (x, y))
 
                 if pos == self.current_state.agent_pos:
@@ -250,7 +250,7 @@ class SokobanUI(ResponsiveSokobanUIBase):
         self._draw_button(self.btn_right, "Reset", Theme.BTN_PINK)
         self._draw_info_panel()
 
-    # PHẦN 4 - EVENT LOOP
+    # Event loop
     def run(self) -> None:
         running = True
         window_resized_event = getattr(pygame, "WINDOWRESIZED", -9999)
@@ -285,7 +285,7 @@ class SokobanUI(ResponsiveSokobanUIBase):
                     elif event.key == pygame.K_r:
                         self.reset_state()
 
-            # Nếu đang play và chưa pause thì tự chạy animation theo thời gian.
+            # Tự chạy bước tiếp theo khi đang Play.
             if self.is_playing and not self.is_paused and self.solution_states:
                 if time.time() - self.last_step_time >= Theme.AUTO_STEP_SEC:
                     if self.current_step < len(self.solution_actions):
@@ -299,13 +299,12 @@ class SokobanUI(ResponsiveSokobanUIBase):
             pygame.display.flip()
             self.clock.tick(Theme.FPS)
 
-        # Chỉ đóng cửa sổ hiện tại rồi return.
-        # Không sys.exit() vì UI có thể được gọi từ menu_ui.py hoặc main.py.
+        # Đóng UI rồi quay về menu gọi nó.
         pygame.quit()
         return
 
 
-# PHẦN 5 - CHẠY TRỰC TIẾP TASK 5
+# Chạy trực tiếp Task 5
 def default_map_path() -> str:
     current_dir = os.path.dirname(os.path.abspath(__file__))
     return os.path.join(current_dir, "..", "Ex1", "testmap.txt")

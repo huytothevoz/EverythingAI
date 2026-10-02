@@ -7,7 +7,7 @@ ROOT = os.path.dirname(os.path.abspath(__file__))
 if ROOT not in sys.path:
     sys.path.append(ROOT)
 
-DEFAULT_SINGLE_MAP = os.path.join(ROOT, "Ex1", "testmap.txt")
+DEFAULT_SINGLE_MAP = os.path.join(ROOT, "Ex1", "example_map.txt")
 DEFAULT_COMP_MAP = os.path.join(ROOT, "Ex6", "competitive_map.txt")
 
 
@@ -25,18 +25,13 @@ def ask_int(prompt: str, default: int) -> int:
 
 
 def ask_map_path(prompt: str, default_path: str) -> str:
-    """Cho user nhập path layout như đề yêu cầu.
-
-    - Enter: dùng default map.
-    - Path tương đối: tính từ project root.
-    - Path tuyệt đối: dùng trực tiếp.
-    """
+    """Đọc đường dẫn map; Enter sẽ dùng map mặc định."""
     while True:
         raw = input(f"{prompt}\nEnter để dùng mặc định [{default_path}]: ").strip()
         if not raw:
             return default_path
 
-        # VS Code/Windows đôi khi user paste path có dấu nháy.
+        # Bỏ dấu nháy nếu người dùng copy path từ Windows.
         raw = raw.strip('"').strip("'")
         candidate = raw if os.path.isabs(raw) else os.path.join(ROOT, raw)
         candidate = os.path.abspath(candidate)
@@ -90,13 +85,13 @@ def run_requirement2():
 
     print(f"\nREQUIREMENT 2 - {name}")
     print(f"Map: {map_path}")
-    print(f"Solution actions: {actions}")  # North/East/West/South theo đề.
+    print(f"Solution actions: {actions}")
     print(f"Total cost: {cost}")
     print(f"Expanded nodes: {expanded}")
 
 
 def run_requirement3():
-    """Ex3 gọi lại đúng UCS/A* ở Ex2 để benchmark time và space."""
+    """Chạy benchmark UCS và A*."""
     from Ex3.experiments import main as experiments_main
 
     print("\nREQUIREMENT 3 - BENCHMARK UCS VS A*")
@@ -104,7 +99,7 @@ def run_requirement3():
 
 
 def run_requirement4():
-    """Ex4 kiểm tra admissibility/consistency của heuristic đang dùng trong Ex2."""
+    """Kiểm tra admissibility và consistency của heuristic."""
     from Ex4.verify_heuristic import main as verify_main
 
     print("\nREQUIREMENT 4 - VERIFY HEURISTIC")
@@ -137,7 +132,7 @@ def run_requirement6():
     print(f"Initial agent1: {state.agent1_pos} | agent2: {state.agent2_pos}")
     print(f"Initial boxes: {sorted(state.boxes)}")
     print(f"Goal positions: {sorted(game.red_points)}")
-    print("Nhập 2 action để mô phỏng 1 turn (Up/Down/Left/Right/Stay).")
+    print("Nhập 2 action để mô phỏng 1 turn (North/East/West/South/Stay).")
 
     while state.steps_left > 0:
         print(f"\nSteps left: {state.steps_left}")
@@ -158,7 +153,7 @@ def run_requirement6():
 
 
 def run_requirement7():
-    """Chạy hai agent của Ex7 trên competitive engine Ex6."""
+    """Chạy trận đấu giữa hai agent."""
     from Ex7.run_competitive import run_match
 
     print("\nREQUIREMENT 7 - COMPETITIVE AGENTS")
@@ -170,7 +165,7 @@ def run_requirement7():
 
 
 def run_requirement8():
-    """Task 8 ghép UI chung Ex5 + engine Ex6 + agents Ex7."""
+    """Mở giao diện competitive."""
     try:
         from Ex8.competitive_ui import main as run_ui
     except ModuleNotFoundError as exc:

@@ -9,20 +9,17 @@ PARENT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if PARENT_DIR not in sys.path:
     sys.path.append(PARENT_DIR)
 
+from Ex1.game_logic import DIRECTION_VECTORS
 from Ex2.search_algorithms import chebyshev_distance, first_action_from_parent
 from Ex6.game_logic_competitive import CompetitiveGameState, CompetitiveSokobanGame
 
-# 4 action di chuyển giống Ex1/Ex6; Stay chỉ dùng làm fallback / mô phỏng đối thủ đứng yên.
-ACTIONS = ("Up", "Down", "Left", "Right")
+# Dùng cùng tên action với single-agent.
+ACTIONS = tuple(DIRECTION_VECTORS.keys())
 STAY = "Stay"
 
 
 def build_deadline(time_limit_ms: int, safety_margin_ms: int = 180) -> float:
-    """Tạo deadline cho một lần decision.
-
-    Đề cho tối đa 1000 ms / decision. Ta chừa safety margin đủ rộng để phần return,
-    Python overhead và GUI không làm vượt ngưỡng sát 1000 ms.
-    """
+    """Tạo deadline và chừa một khoảng an toàn trước giới hạn thời gian."""
     usable_ms = max(1, time_limit_ms - safety_margin_ms)
     return time.perf_counter() + usable_ms / 1000.0
 
@@ -44,12 +41,7 @@ def simulate_single_agent_action(
     agent_id: int,
     action: str,
 ) -> CompetitiveGameState:
-    """Mô phỏng 1 action của đúng một agent trong lúc search.
-
-    Agent còn lại được xem là đứng yên (Stay).
-    Quan trọng: vẫn gọi apply_joint_actions() của Ex6, vì vậy Requirement 7
-    không viết lại luật tường, box, ownership hay collision.
-    """
+    """Mô phỏng một agent đi, agent còn lại đứng yên."""
     if agent_id == 1:
         return game.apply_joint_actions(state, action, STAY)
     return game.apply_joint_actions(state, STAY, action)
@@ -61,11 +53,7 @@ def legal_actions(
     agent_id: int,
     include_stay: bool = True,
 ) -> List[str]:
-    """Lấy các action hợp lệ cho agent đang search.
-
-    Ngoài việc action phải làm thay đổi state, ta còn prune corner-deadlock bằng
-    đúng helper mà Ex6 đã kế thừa từ Requirement 1.
-    """
+    """Lấy các action hợp lệ và bỏ nước đi gây corner deadlock."""
     result: List[str] = []
     current_pos = get_agent_position(state, agent_id)
 
@@ -73,11 +61,11 @@ def legal_actions(
         next_state = simulate_single_agent_action(game, state, agent_id, action)
         next_pos = get_agent_position(next_state, agent_id)
 
-        # Action không làm thay đổi vị trí agent hay box => không có ích cho search.
+        # Bỏ action không làm thay đổi state.
         if next_pos == current_pos and next_state.boxes == state.boxes:
             continue
 
-        # Nếu action vừa đẩy box vào corner deadlock thì bỏ khỏi successor của agent.
+        # Bỏ nước đi làm box kẹt ở góc.
         moved_boxes = set(next_state.boxes) - set(state.boxes)
         if any(game.is_corner_deadlock(box_pos) for box_pos in moved_boxes):
             continue
@@ -95,31 +83,20 @@ def competitive_heuristic(
     state: CompetitiveGameState,
     agent_id: int,
 ) -> float:
-    """Heuristic cho bài toán cạnh tranh, giá trị càng nhỏ càng tốt.
-
-    Đây KHÔNG phải viết lại heuristic của Task 2.
-    Ta tái sử dụng *chebyshev_distance()* của Task 2 rồi bổ sung yếu tố cạnh tranh:
-    1. Chênh lệch điểm với đối thủ.
-    2. Khoảng cách box chưa hoàn thành -> goal gần nhất.
-    3. Khoảng cách agent -> box cần xử lý.
-    4. Số box trên goal đang thuộc đối thủ.
-
-    Heuristic này dùng cho GBFS/A* của Requirement 7, còn Task 4 vẫn verify
-    heuristic single-agent của Requirement 2.
-    """
+    """Heuristic cạnh tranh: ưu tiên điểm số rồi xét khoảng cách box và agent."""
     scores = game.get_scores(state)
     own_key = "agent1" if agent_id == 1 else "agent2"
     opp_key = "agent2" if agent_id == 1 else "agent1"
     own_score = scores[own_key]
     opp_score = scores[opp_key]
 
-    # Score là mục tiêu quan trọng nhất nên đặt trọng số lớn.
+    # Điểm số được ưu tiên cao nhất.
     score_term = 30.0 * (opp_score - own_score)
 
     unfinished_boxes = [box for box in state.boxes if box not in game.red_points]
 
     if unfinished_boxes:
-        # Tổng khoảng cách mỗi box chưa hoàn thành tới goal gần nhất.
+        # Khoảng cách box chưa hoàn thành tới goal gần nhất.
         box_goal_term = 0.0
         for box in unfinished_boxes:
             box_goal_term += min(
@@ -127,7 +104,7 @@ def competitive_heuristic(
                 for goal in game.red_points
             )
 
-        # Khuyến khích agent đi gần một box chưa hoàn thành.
+        # Ưu tiên agent tiếp cận box chưa hoàn thành.
         agent_pos = get_agent_position(state, agent_id)
         agent_box_term = min(
             chebyshev_distance(agent_pos, box)
@@ -137,7 +114,7 @@ def competitive_heuristic(
         box_goal_term = 0.0
         agent_box_term = 0.0
 
-    # Box của đối thủ đang nằm trên goal vẫn có thể bị phá rồi giành lại.
+    # Tính thêm các goal đang thuộc đối thủ.
     owners = state.get_owner_dict()
     opponent_owned_goals = 0
     for box in state.boxes:
@@ -154,8 +131,7 @@ def competitive_heuristic(
     )
 
 
-# Re-export helper này để agent1.py / agent2.py vẫn import từ agent_utils cho dễ đọc.
-# Thực chất implementation nằm ở Ex2 để toàn project dùng chung logic truy vết.
+# Wrapper dùng chung cho hai agent.
 def get_first_action(parent, start, target) -> str:
     """Lấy action đầu tiên của kế hoạch; nếu không có thì trả Stay."""
     return first_action_from_parent(parent, start, target, default_action=STAY)

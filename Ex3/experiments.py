@@ -13,7 +13,7 @@ from Ex2.search_algorithms import a_star_search, ucs_search
 
 
 def measure_time(search_fn, map_path, repeats=5):
-    """Chạy nhiều lần và lấy execution time trung bình (không bật tracemalloc)."""
+    """Chạy nhiều lần và lấy thời gian trung bình."""
     times = []
     last_result = None
 
@@ -28,7 +28,7 @@ def measure_time(search_fn, map_path, repeats=5):
 
 
 def measure_peak_memory(search_fn, map_path):
-    """Đo peak Python memory allocation bằng tracemalloc."""
+    """Đo peak memory bằng tracemalloc."""
     game = SokobanGame(map_path)
     tracemalloc.start()
     result = search_fn(game, return_stats=True)
@@ -38,11 +38,7 @@ def measure_peak_memory(search_fn, map_path):
 
 
 def benchmark_algorithm(name, search_fn, map_path, repeats=5):
-    """Thu thập các metric time/space để so sánh UCS và A*.
-
-    Ngoài peak memory, max_frontier_size và visited_states được ghi lại để
-    phần space complexity của search có bằng chứng trực tiếp hơn.
-    """
+    """Thu thập time, memory, frontier và số state đã duyệt."""
     avg_time_ms, result = measure_time(search_fn, map_path, repeats)
     peak_memory_kb, _ = measure_peak_memory(search_fn, map_path)
 
@@ -64,7 +60,7 @@ def main():
     current_dir = os.path.dirname(os.path.abspath(__file__))
     root_dir = os.path.dirname(current_dir)
 
-    # Dùng nhiều map có độ khó/số box khác nhau để so sánh có ý nghĩa hơn.
+    # Benchmark trên nhiều map để kết quả dễ so sánh.
     maps = [
         ("testmap", os.path.join(root_dir, "Ex1", "testmap.txt")),
         ("benchmark_1box", os.path.join(current_dir, "maps", "benchmark_1box.txt")),

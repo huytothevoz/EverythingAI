@@ -1,14 +1,7 @@
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
-
-venv/
-.venv/
-
+*.py[cod]
 .vscode/
-.idea/
-
-.env
+tempCodeRunnerFile.py
 .DS_Store
 Thumbs.db
+*.zip

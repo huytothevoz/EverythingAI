@@ -10,19 +10,12 @@ from Ex1.game_logic import GameState, SokobanGame
 
 
 def chebyshev_distance(pos1, pos2):
-    """Khoảng cách Chebyshev giữa hai tọa độ.
-
-    Requirement 2 dùng helper này cho A* và Requirement 7 import lại để
-    không tạo thêm một công thức Chebyshev trùng lặp.
-    """
+    """Tính khoảng cách Chebyshev giữa hai tọa độ."""
     return max(abs(pos1[0] - pos2[0]), abs(pos1[1] - pos2[1]))
 
 
 def chebyshev_heuristic(state, game):
-    """h(n) = tổng Chebyshev từ mỗi box tới goal gần nhất.
-
-    Heuristic không dùng Manhattan/Euclidean như đề yêu cầu.
-    """
+    """Ước lượng chi phí bằng Chebyshev từ box tới goal gần nhất."""
     if not state.boxes or not game.red_points:
         return 0
 
@@ -37,7 +30,7 @@ def chebyshev_heuristic(state, game):
 
 
 def reconstruct_actions(parent, goal_state):
-    """Truy vết parent từ goal về source rồi đảo thành action list."""
+    """Dựng lại danh sách action từ bảng parent."""
     path_actions = []
     current = goal_state
 
@@ -51,7 +44,7 @@ def reconstruct_actions(parent, goal_state):
 
 
 def first_action_from_parent(parent, start_state, target_state, default_action="Stay"):
-    """Lấy action đầu tiên từ start -> target; Requirement 7 dùng lại helper này."""
+    """Lấy action đầu tiên trên đường từ start tới target."""
     if target_state == start_state:
         return default_action
 
@@ -60,7 +53,7 @@ def first_action_from_parent(parent, start_state, target_state, default_action="
 
 
 def _finish_result(path_actions, cost, expanded, visited, max_frontier_size, return_stats):
-    """Giữ interface cũ 3 giá trị, nhưng Ex3 có thể yêu cầu thêm search statistics."""
+    """Trả kết quả search, kèm thống kê khi được yêu cầu."""
     if not return_stats:
         return path_actions, cost, expanded
 
@@ -72,12 +65,7 @@ def _finish_result(path_actions, cost, expanded, visited, max_frontier_size, ret
 
 
 def a_star_search(game, start_state=None, return_stats=False):
-    """A* search với f(n) = g(n) + h(n).
-
-    start_state cho phép Requirement 4 tính h*(s) từ một state bất kỳ mà
-    không phải sửa game.initial_state. return_stats được Requirement 3 dùng
-    để đo max frontier và số visited states.
-    """
+    """A* search, hỗ trợ state bắt đầu tùy chọn và thống kê."""
     src = start_state if start_state is not None else game.initial_state
 
     pq = [(chebyshev_heuristic(src, game), src)]
@@ -128,7 +116,7 @@ def a_star_search(game, start_state=None, return_stats=False):
 
 
 def ucs_search(game, start_state=None, return_stats=False):
-    """Uniform-Cost Search; priority chỉ dùng g(n)."""
+    """Uniform-Cost Search theo chi phí đã đi."""
     src = start_state if start_state is not None else game.initial_state
 
     pq = [(0, src)]

@@ -5,7 +5,7 @@ import sys
 from dataclasses import dataclass
 from typing import Dict, FrozenSet, Optional, Tuple
 
-# Ex6 mở rộng từ logic Sokoban ở Ex1 nên dùng lại luôn các helper cơ bản.
+# Dùng lại các helper của single-agent.
 PARENT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if PARENT_DIR not in sys.path:
     sys.path.append(PARENT_DIR)
@@ -15,23 +15,17 @@ from Ex1.game_logic import DIRECTION_VECTORS, Position, add_position, is_corner_
 
 @dataclass(frozen=True)
 class CompetitiveGameState:
-    """State cho Sokoban 2 agent cạnh tranh.
-
-    So với GameState ở Requirement 1, state mới bổ sung:
-    - vị trí của agent thứ hai,
-    - owner của từng box,
-    - số turn còn lại.
-    """
+    """State của chế độ hai agent."""
 
     agent1_pos: Position
     agent2_pos: Position
     boxes: FrozenSet[Position]
-    # Lưu owner dạng tuple để state vẫn immutable/hashable giống GameState ở Ex1.
+    # Tuple giúp state vẫn hashable khi search.
     box_owners: Tuple[Tuple[Position, int], ...]
     steps_left: int
 
     def get_owner_dict(self) -> Dict[Position, int]:
-        """Chuyển tuple owner -> dict để truy vấn/cập nhật dễ hơn."""
+        """Đổi dữ liệu owner sang dict để xử lý dễ hơn."""
         return dict(self.box_owners)
 
     def __lt__(self, other: "CompetitiveGameState") -> bool:
@@ -44,16 +38,9 @@ class CompetitiveGameState:
 
 
 class CompetitiveSokobanGame:
-    """Mở rộng Sokoban ở Requirement 1 thành bài toán 2 agent cạnh tranh.
+    """Logic Sokoban hai agent với action đồng thời."""
 
-    Quy tắc chính:
-    - Hai agent cùng chọn action từ *một state ban đầu của turn*.
-    - Sau đó engine mới resolve hai action đồng thời.
-    - Hai agent không được đứng cùng ô hoặc đi xuyên qua nhau.
-    - Box trên goal vẫn có thể bị đối thủ đẩy ra rồi giành lại.
-    """
-
-    # Tái sử dụng 4 hướng đi từ Ex1, chỉ thêm Stay cho competitive mode.
+    # Bốn hướng dùng chung với Ex1, competitive có thêm Stay.
     ACTIONS = {**DIRECTION_VECTORS, "Stay": (0, 0)}
 
     def __init__(self, map_file_path: str, max_steps: int = 50):
@@ -65,8 +52,7 @@ class CompetitiveSokobanGame:
         agent2_pos = None
         temp_boxes = set()
 
-        # Format map giữ gần giống Ex1:
-        # % = wall, 1/A = agent1, 2 = agent2, B = box, D = goal, C = box-on-goal.
+        # Ký hiệu map: %, 1/A, 2, B, D và C.
         with open(map_file_path, "r", encoding="utf-8") as f:
             for i, line in enumerate(f):
                 row = list(line.rstrip("\n"))
@@ -89,7 +75,7 @@ class CompetitiveSokobanGame:
         if agent1_pos is None or agent2_pos is None:
             raise ValueError("Bản đồ competitive phải có đủ 2 Agent (A/1 và 2)")
 
-        # Owner = 0 nghĩa là box chưa thuộc về agent nào.
+        # Owner 0 nghĩa là box chưa được tính cho agent nào.
         self.initial_state = CompetitiveGameState(
             agent1_pos=agent1_pos,
             agent2_pos=agent2_pos,
@@ -99,11 +85,7 @@ class CompetitiveSokobanGame:
         )
 
     def is_corner_deadlock(self, box_pos: Position) -> bool:
-        """Dùng lại đúng quy tắc corner deadlock của Requirement 1.
-
-        Engine không bắt buộc cấm mọi deadlock khi chơi; hàm này chủ yếu để
-        Requirement 7 có thể prune nước đi xấu trong lúc search.
-        """
+        """Kiểm tra corner deadlock bằng cùng quy tắc của Ex1."""
         return is_corner_deadlock_at(box_pos, self.walls, self.red_points)
 
     def get_scores(self, state: CompetitiveGameState) -> Dict[str, int]:
@@ -151,15 +133,14 @@ class CompetitiveSokobanGame:
         boxes.remove(box_from)
         boxes.add(box_to)
 
-        previous_owner = owners.pop(box_from, 0)
+        owners.pop(box_from, 0)
 
-        # Nếu agent vừa đẩy box VÀO goal thì box được tính cho agent đó.
+        # Box trên goal được tính cho agent vừa đẩy vào.
         if box_to in self.red_points:
             owners[box_to] = agent_id
         else:
-            # Nếu box bị đẩy ra khỏi goal thì tạm giữ owner cũ.
-            # Khi agent khác đẩy nó vào goal, owner sẽ được cập nhật lại.
-            owners[box_to] = previous_owner
+            # Ra khỏi goal thì box trở lại trạng thái chưa hoàn thành.
+            owners[box_to] = 0
 
     def _invalid_intent(self, agent_id: int, action: str, agent_pos: Position) -> Dict[str, object]:
         """Tạo intent đứng im khi action không hợp lệ."""
@@ -181,11 +162,7 @@ class CompetitiveSokobanGame:
         action: str,
         boxes: set[Position],
     ) -> Dict[str, object]:
-        """Phân tích action thành "ý định" trước khi resolve đồng thời.
-
-        Quan trọng: hàm này KHÔNG cập nhật state ngay.
-        Cả Agent 1 và Agent 2 đều build intent từ cùng original state.
-        """
+        """Tạo intent từ state đầu turn, chưa cập nhật game ngay."""
         if action not in self.ACTIONS:
             action = "Stay"
 
@@ -204,11 +181,11 @@ class CompetitiveSokobanGame:
 
         next_pos = add_position(agent_pos, delta)
 
-        # Không đi xuyên tường hoặc đi thẳng vào vị trí hiện tại của agent kia.
+        # Không đi vào wall hoặc vị trí hiện tại của agent còn lại.
         if next_pos in self.walls or next_pos == other_agent_pos:
             return self._invalid_intent(agent_id, action, agent_pos)
 
-        # Nếu phía trước là box thì kiểm tra có đẩy được hay không.
+        # Nếu gặp box thì kiểm tra ô phía sau.
         if next_pos in boxes:
             box_to = add_position(next_pos, delta)
 
@@ -225,7 +202,7 @@ class CompetitiveSokobanGame:
                 "pushed": True,
             }
 
-        # Đi vào ô trống.
+        # Di chuyển vào ô trống.
         return {
             "agent_id": agent_id,
             "action": action,
@@ -238,7 +215,7 @@ class CompetitiveSokobanGame:
 
     @staticmethod
     def _same_cell_conflict(intent1: Dict[str, object], intent2: Dict[str, object]) -> bool:
-        """Hai agent cùng muốn kết thúc ở một ô => cả hai bị hủy."""
+        """Hai agent cùng muốn vào một ô."""
         return bool(
             intent1["valid"]
             and intent2["valid"]
@@ -251,7 +228,7 @@ class CompetitiveSokobanGame:
         intent1: Dict[str, object],
         intent2: Dict[str, object],
     ) -> bool:
-        """Hai agent đổi chỗ cho nhau trong 1 turn => vi phạm 'cannot pass through'."""
+        """Hai agent không được đổi chỗ xuyên qua nhau."""
         return bool(
             intent1["valid"]
             and intent2["valid"]
@@ -268,15 +245,15 @@ class CompetitiveSokobanGame:
         box_from1, box_to1 = intent1["box_from"], intent1["box_to"]
         box_from2, box_to2 = intent2["box_from"], intent2["box_to"]
 
-        # Cả hai cùng tác động một box.
+        # Hai agent cùng đẩy một box.
         if box_from1 is not None and box_from1 == box_from2:
             return True
 
-        # Hai box khác nhau nhưng cùng bị đẩy vào một destination.
+        # Hai box cùng bị đẩy vào một ô.
         if box_to1 is not None and box_to1 == box_to2:
             return True
 
-        # Agent bên này muốn đứng đúng ô mà box bên kia sẽ chiếm sau turn.
+        # Agent không được kết thúc ở ô box bên kia sẽ chiếm.
         if box_to1 is not None and intent2["end_pos"] == box_to1:
             return True
         if box_to2 is not None and intent1["end_pos"] == box_to2:
@@ -297,7 +274,7 @@ class CompetitiveSokobanGame:
         original_boxes = set(state.boxes)
         owners = state.get_owner_dict()
 
-        # Cả hai intent được tính từ CHÍNH state trước turn.
+        # Cả hai intent đều lấy từ cùng state đầu turn.
         intent1 = self._build_intent(
             1,
             state.agent1_pos,
@@ -313,7 +290,7 @@ class CompetitiveSokobanGame:
             original_boxes,
         )
 
-        # Nếu có conflict đồng thời thì hủy cả hai intent.
+        # Có xung đột thì hủy cả hai action.
         has_conflict = (
             self._same_cell_conflict(intent1, intent2)
             or self._swap_conflict(state, intent1, intent2)
@@ -327,7 +304,7 @@ class CompetitiveSokobanGame:
         final_boxes = set(original_boxes)
         final_owners = dict(owners)
 
-        # Sau khi resolve conflict xong mới thật sự apply các box move.
+        # Chỉ cập nhật box sau khi xử lý xung đột.
         if intent1["valid"] and intent1["box_from"] is not None:
             self._apply_box_move(
                 final_boxes,

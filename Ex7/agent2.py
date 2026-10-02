@@ -1,4 +1,4 @@
-# Agent 2: A* Search
+# Agent 2 dùng A*.
 
 from __future__ import annotations
 
@@ -34,7 +34,7 @@ def choose_action(
     state: CompetitiveGameState,
     time_limit_ms: int = 1000,
 ) -> str:
-    """Chọn 1 action bằng time-bounded A*: f(n) = g(n) + h(n)."""
+    """Chọn một action bằng A* trong giới hạn thời gian."""
     if state.steps_left <= 0:
         return STAY
 
@@ -73,7 +73,7 @@ def choose_action(
         current_g = g_score[current]
 
         for action in legal_actions(game, current, AGENT_ID, include_stay=False):
-            # Kiểm tra deadline ngay trong vòng sinh successor để không vượt 1000 ms.
+            # Dừng sớm nếu gần hết thời gian.
             if time.perf_counter() >= deadline:
                 break
             child = simulate_single_agent_action(game, current, AGENT_ID, action)
@@ -81,7 +81,7 @@ def choose_action(
             if child == current:
                 continue
 
-            # Mỗi action có cost = 1 giống Requirement 1/2.
+            # Mỗi action có cost 1 như single-agent.
             tentative_g = current_g + 1
 
             if tentative_g >= g_score.get(child, 10**9):
@@ -94,7 +94,7 @@ def choose_action(
             f_score = tentative_g + child_h
             heapq.heappush(pq, (f_score, next(counter), depth + 1, child))
 
-    # Hết budget thì chọn hướng dẫn đến state tốt nhất đã tìm thấy.
+    # Hết thời gian thì dùng state tốt nhất đã tìm được.
     action = get_first_action(parent, state, best_state)
     if action != STAY:
         return action
