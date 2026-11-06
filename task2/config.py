@@ -23,8 +23,8 @@ class Direction(Enum):
     LEFT = (0,-1)
     RIGHT = (0,1)
 class Player(Enum):
-    MAX = 1
-    MIN = 2
+    MAX = 0
+    MIN = 1
 #Chuyển hành động ->hướng của hành động
 MOVE_TO_DIRECTION = {
     Action.MOVE_UP: Direction.UP,
@@ -32,3 +32,8 @@ MOVE_TO_DIRECTION = {
     Action.MOVE_LEFT: Direction.LEFT,
     Action.MOVE_RIGHT: Direction.RIGHT,
 }
+class AgentType(Enum):
+    MINIMAX = "minimax"
+    ALPHABETA = "alphabeta"
+    MINIMAX_HEURISTIC = "minimax_heuristic"
+    ALPHABETA_HEURISTIC = "alphabeta_heuristic"

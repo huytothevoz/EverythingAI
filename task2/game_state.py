@@ -75,14 +75,25 @@ class GameState:
         #Đạn bay 3 ô per 1 cycle
         #Nếu có vật thể trên đường đi thì hit vật thể đó trước và đạn biến mất
         for n_square in range(BULLET_SPEED):
-            bullets_to_del=[]
+            moving_intent={} #key(tọa độ điểm đến)-value(List các bullet muốn đến điểm key)
             for bullet in self.bullets:
                 new_position=(bullet.position[0] + bullet.direction.value[0],bullet.position[1] + bullet.direction.value[1])
-                if not is_inside(new_position[0],new_position[1]):
-                    bullets_to_del.append(bullet)
+                if not is_inside(new_position[0],new_position[1]):  
                     continue
-                if self.get_entity_at(new_position[0],new_position[1]) is not None:
-                    obj=self.get_entity_at(new_position[0],new_position[1])
+                if new_position not in moving_intent:
+                    moving_intent[new_position]=[]
+                moving_intent[new_position].append(bullet)
+
+            bullets_to_del=set()
+            next_bullets=[]
+            for pos,bullets_at_pos in moving_intent.items():
+                if len(bullets_at_pos)>1:
+                    for bullet in bullets_at_pos:
+                        bullets_to_del.add(bullet)
+                    continue
+                bullet=bullets_at_pos[0]
+                obj= obj=self.get_entity_at(pos[0],pos[1])
+                if obj is not None:
                     #Nếu vật thể là Thực thể (không phải đạn)
                     if isinstance(obj,Entity):
                         obj.take_damage()
@@ -95,11 +106,38 @@ class GameState:
                               self.bases.pop(obj.playerID)
                    #Sử lý va chạm đạn
                     else:
-                        bullets_to_del.append(obj)
-                    bullets_to_del.append(bullet)
-                        
+                        bullets_to_del.add(obj)
+                    #Viên đạn bay trúng vật thể bị huỷe
+                    bullets_to_del.add(bullet)
                 else:
-                    bullet.position=new_position
-            self.bullets = [b for b in self.bullets if b not in bullets_to_del]
-    
+                    bullet.position=pos
+                    next_bullets.append(bullet)
+            self.bullets = [b for b in self.bullets if b not in bullets_to_del]+next_bullets
+    def is_terminal(self):
+        # Kiểm tra an toàn xem Tank và Base có tồn tại trong từ điển không trước khi gọi is_alive()
+        max_tank_alive = Player.MAX in self.tanks and self.tanks[Player.MAX].is_alive()
+        min_tank_alive = Player.MIN in self.tanks and self.tanks[Player.MIN].is_alive()
+        
+        max_base_alive = Player.MAX in self.bases and self.bases[Player.MAX].is_alive()
+        min_base_alive = Player.MIN in self.bases and self.bases[Player.MIN].is_alive()
+        
+        return not max_tank_alive or not min_tank_alive or not max_base_alive or not min_base_alive
+
+    def get_utility(self, depth_remaining: int):
+        max_tank_alive = Player.MAX in self.tanks and self.tanks[Player.MAX].is_alive()
+        min_tank_alive = Player.MIN in self.tanks and self.tanks[Player.MIN].is_alive()
+        
+        max_base_alive = Player.MAX in self.bases and self.bases[Player.MAX].is_alive()
+        min_base_alive = Player.MIN in self.bases and self.bases[Player.MIN].is_alive()
+        
+        max_win = not min_tank_alive or not min_base_alive
+        min_win = not max_tank_alive or not max_base_alive
+        
+        if max_win and min_win:
+            return 0.0
+        if max_win:
+            return 10000.0 + depth_remaining
+        if min_win:
+            return -10000.0 - depth_remaining
+        return 0.0
             
