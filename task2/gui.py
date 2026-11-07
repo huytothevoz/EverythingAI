@@ -151,14 +151,14 @@ class TankWarsGUI:
                         target_h = int(img.get_height() * scale_ratio)
                         
                         imgs[key] = pygame.transform.scale(img, (target_w, target_h))
-                        print(f"✅ Đã tải: {path} -> {imgs[key].get_size()}")
+                        
                         found = True
                         break
                     except Exception as e:
-                        print(f"❌ Lỗi khi tải {path}: {e}")
+                        print(f"Lỗi khi tải {path}: {e}")
             
             if not found:
-                print(f"⚠️ KHÔNG TÌM THẤY ẢNH: {base_name} -> Dùng mặc định.")
+                print(f"KHÔNG TÌM THẤY ẢNH: {base_name} -> Dùng mặc định.")
                 imgs[key] = None
         return imgs
 
