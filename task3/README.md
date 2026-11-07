@@ -42,7 +42,7 @@ Solver liệt kê các bộ giá trị hợp lệ của mỗi run rồi dùng ch
 
 ## Chạy ứng dụng
 
-Trong thư mục `task3`:
+Từ thư mục `task3`:
 
 ```bash
 python -m pip install -r requirements.txt
@@ -55,7 +55,8 @@ quay lại menu.
 
 ### Play Game
 
-- Click ô trắng hoặc dùng các phím mũi tên để chọn; nhấn `1`–`9` để nhập.
+- Click ô trắng hoặc dùng các phím mũi tên để chọn; nhấn `1`–`9` ở hàng số
+  hoặc bàn phím số phụ để nhập trực tiếp từ bàn phím.
 - `Backspace`/`Delete` xóa số; `N` bật/tắt ghi chú.
 - Dùng **Check**, **Hint**, **Undo**, **Clear** và **Restart** trên thanh công cụ.
 - Hint chỉ nêu một suy luận cục bộ dựa trên clue và ô còn thiếu; không điền số
@@ -73,49 +74,33 @@ quay lại menu.
 - Panel hiển thị domain, gán giá trị, mâu thuẫn, quay lui và `SolverStats` thật.
 - Chế độ None có thể rất chậm trên bảng 9×9; dùng Reset để dừng và thử cấu hình
   khác.
+- Cửa sổ tự chọn kích thước vừa màn hình khi khởi động; có thể kéo đổi kích
+  thước, giao diện AI Solver sẽ thu/phóng theo tỉ lệ và giữ các nút tương tác.
 
 ## Cấu trúc source
 
 ```text
 task3/
-├── main.py                 # Main Menu, Help/About và điều hướng mode
+├── main.py                 # Entry point, menu và điều hướng mode
 ├── kakuro_solver.py        # Mô hình CSP, propagation và backtracking
 ├── boards.py               # Puzzle đề bài 9×9 và puzzle demo 2×2
 ├── eval_benchmark.py       # Benchmark backend trên puzzle 9×9
 ├── kakuro_gui.py           # Giao diện và trực quan hóa AI Solver
 ├── kakuro_game.py          # Play Mode, luật chơi và trạng thái riêng
-├── requirements.txt        # Pygame
-├── test_backend.py         # Kiểm tra nghiệm thật của puzzle 9×9
-├── test_solve_mode.py      # Các propagation, sự kiện và backtracking
-├── test_kakuro_gui.py      # Điều khiển/render Solve Mode
-├── test_kakuro_game.py     # Luật chơi và thao tác Play Mode
-└── test_application.py     # Menu và điều hướng toàn ứng dụng
+├── display_utils.py        # Chọn kích thước cửa sổ theo màn hình
+└── requirements.txt        # Pygame
 ```
 
 Không cần asset hoặc đường dẫn tuyệt đối; font được chọn qua Pygame và hệ
 thống thay bằng font mặc định nếu font yêu cầu không có.
 
-## Kiểm thử
+## Kiểm tra và benchmark
 
-Chạy toàn bộ test:
-
-```bash
-python -m unittest -v
-```
-
-Chạy riêng backend 9×9 (GAC), cấu hình Solve Mode, hoặc benchmark:
+Các bài test tự động đã được chạy trước khi xóa theo yêu cầu. Để tự chạy
+benchmark CSP trên bảng 9×9:
 
 ```bash
-python -m unittest -v test_backend.py
-python -m unittest -v test_solve_mode.py
 python eval_benchmark.py
-```
-
-Các bài test UI đặt biến môi trường SDL dummy để chạy được trong môi trường
-không có màn hình; có thể kiểm tra luồng menu bằng:
-
-```bash
-python -c "import pygame; pygame.init(); pygame.event.post(pygame.event.Event(pygame.QUIT)); import main; main.main()"
 ```
 
 ## Benchmark
@@ -131,7 +116,5 @@ kết quả đã chạy:
 
 Đây là một lần chạy thực tế của `python eval_benchmark.py` trên Windows,
 Python 3.12.10, Pygame 2.6.1; kết quả máy macOS/Intel có thể khác. Cả hai
-cấu hình đều được xác nhận bằng `validate_solution()`. Test backend tự động
-cũng giải puzzle 9×9 bằng GAC và kiểm tra nghiệm cùng các sự kiện callback.
-Các propagation được kiểm tra trên puzzle demo 2×2; benchmark lớn không chạy
+cấu hình đều được xác nhận bằng `validate_solution()`. Benchmark lớn không chạy
 chế độ None vì chế độ này không lan truyền miền và có thể tốn rất nhiều thời gian.

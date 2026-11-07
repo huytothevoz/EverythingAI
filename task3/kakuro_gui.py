@@ -10,6 +10,7 @@ from typing import Dict, Iterable, List, Mapping, Optional, Set, Tuple
 import pygame
 
 from boards import make_assignment_board
+from display_utils import initial_window_size
 from kakuro_solver import Cell, KakuroBoard, KakuroSolver, SolverEvent
 
 Color = Tuple[int, int, int]
@@ -90,7 +91,10 @@ class KakuroGUI:
     def __init__(self, board: Optional[KakuroBoard] = None) -> None:
         pygame.init()
         pygame.display.set_caption("Kakuro CSP | AI Learning Lab")
-        self.screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT))
+        window_size = initial_window_size((WINDOW_WIDTH, WINDOW_HEIGHT))
+        self.window = pygame.display.set_mode(window_size, pygame.RESIZABLE)
+        self.screen = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT))
+        self._update_viewport()
         self.clock = pygame.time.Clock()
         self.board = board or make_assignment_board()
         self.clues, self.white_cells = build_grid_layout(self.board)
@@ -389,6 +393,12 @@ class KakuroGUI:
             if self._control is not None:
                 self._control.cancel()
             return
+        if event.type == pygame.VIDEORESIZE:
+            self.window = pygame.display.set_mode(
+                (max(1, event.w), max(1, event.h)), pygame.RESIZABLE
+            )
+            self._update_viewport()
+            return
 
         if event.type == pygame.KEYDOWN:
             if event.key == pygame.K_ESCAPE:
@@ -405,7 +415,8 @@ class KakuroGUI:
 
         if event.type == pygame.MOUSEWHEEL:
             event_rect = pygame.Rect(PANEL_X + 16, 300, PANEL_WIDTH - 32, 272)
-            if event_rect.collidepoint(pygame.mouse.get_pos()):
+            mouse_pos = self._to_logical(pygame.mouse.get_pos())
+            if event_rect.collidepoint(mouse_pos):
                 self._event_scroll = max(
                     0, min(len(self._event_lines), self._event_scroll + event.y * 3)
                 )
@@ -413,11 +424,11 @@ class KakuroGUI:
         if event.type == pygame.MOUSEBUTTONUP and event.button == 1:
             self.dragging_speed = False
         if event.type == pygame.MOUSEMOTION and self.dragging_speed:
-            self._set_speed_from_mouse(event.pos[0])
+            self._set_speed_from_mouse(self._to_logical(event.pos)[0])
 
         if event.type != pygame.MOUSEBUTTONDOWN or event.button != 1:
             return
-        pos = event.pos
+        pos = self._to_logical(event.pos)
         if self.mode_rect.collidepoint(pos):
             self.return_to_menu = True
             self.running = False
@@ -476,6 +487,33 @@ class KakuroGUI:
             return int(row), int(col)
         return None
 
+    def _update_viewport(self) -> None:
+        window_width, window_height = self.window.get_size()
+        self._viewport_scale = min(
+            window_width / WINDOW_WIDTH,
+            window_height / WINDOW_HEIGHT,
+        )
+        self._viewport_size = (
+            max(1, round(WINDOW_WIDTH * self._viewport_scale)),
+            max(1, round(WINDOW_HEIGHT * self._viewport_scale)),
+        )
+        self._viewport_offset = (
+            (window_width - self._viewport_size[0]) // 2,
+            (window_height - self._viewport_size[1]) // 2,
+        )
+
+    def _to_logical(self, position: Tuple[int, int]) -> Tuple[int, int]:
+        return (
+            round((position[0] - self._viewport_offset[0]) / self._viewport_scale),
+            round((position[1] - self._viewport_offset[1]) / self._viewport_scale),
+        )
+
+    def _to_window(self, position: Tuple[int, int]) -> Tuple[int, int]:
+        return (
+            round(self._viewport_offset[0] + position[0] * self._viewport_scale),
+            round(self._viewport_offset[1] + position[1] * self._viewport_scale),
+        )
+
     def _draw_text(
         self,
         text: str,
@@ -497,6 +535,12 @@ class KakuroGUI:
         self._draw_board()
         self._draw_right_panel()
         self._draw_controls()
+        self._present()
+
+    def _present(self) -> None:
+        self.window.fill(COLORS["background"])
+        scaled_screen = pygame.transform.smoothscale(self.screen, self._viewport_size)
+        self.window.blit(scaled_screen, self._viewport_offset)
         pygame.display.flip()
 
     def _draw_header(self) -> None:

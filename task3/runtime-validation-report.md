@@ -9,15 +9,15 @@
 | Step | Status | Exit Code | Details |
 |---|---|---:|---|
 | Startup | PASS | 0 | `main.py` started under SDL dummy video, rendered the menu, then exited on a queued Quit event. |
-| Integration tests | PASS | 0 | `python -m unittest -v`: 27 tests passed, 0 failed, 0 skipped. |
+| Automated tests (before removal) | PASS | 0 | 31 tests passed, 0 failed. Test source files were subsequently removed at the user's request. |
 | GUI flows | PARTIAL | 0 | Menu, Play Mode, Solve Mode, input, event playback and mode switching were scripted and rendered under SDL dummy video. Manual visual testing on macOS was not available. |
 | 9x9 benchmark | PASS | 0 | GAC and Forward Checking each returned a solution accepted by `validate_solution()`. |
 
-**Overall**: PASS — automated tests and headless startup passed. A manual display check on the target macOS machine remains unverified.
+**Overall**: PASS — automated tests passed before their source files were removed, and headless startup passed. A manual display check on the target macOS machine remains unverified.
 
 ## Test Evidence
 
-- Full suite: `python -m unittest -v` — exit code 0; 27 passed.
+- Full suite before test-file removal: `python -m unittest -v` — exit code 0; 31 passed, 0 failed.
 - Launcher smoke test: execute `main.py` with SDL dummy video and a queued `pygame.QUIT` event — exit code 0.
 - Render smoke test: Main Menu and Play Mode rendered the 9x9 assignment puzzle with 48 white cells and 22 clue cells.
 - Backend test: `make_assignment_board()` solved by GAC; returned assignment passed `validate_solution()` and produced domain-reduction, assignment and solution events.

@@ -1,4 +1,4 @@
-"""Main menu and application entry point for the Kakuro CSP project."""
+"""Main menu and entry point for the Kakuro CSP project."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ from typing import Dict, Optional, Tuple
 
 import pygame
 
+from display_utils import initial_window_size
 from kakuro_game import KakuroPlayGUI
 from kakuro_gui import COLORS, KakuroGUI
 
@@ -16,7 +17,9 @@ class MainMenu:
     def __init__(self) -> None:
         pygame.init()
         pygame.display.set_caption("KAKURO — CSP PUZZLE SOLVER")
-        self.screen = pygame.display.set_mode((960, 720), pygame.RESIZABLE)
+        self.screen = pygame.display.set_mode(
+            initial_window_size((960, 720)), pygame.RESIZABLE
+        )
         self.clock = pygame.time.Clock()
         self.running = True
         self.page = "menu"

@@ -11,6 +11,7 @@ import pygame
 from boards import make_assignment_board
 from kakuro_gui import COLORS, GRID_SIZE, build_grid_layout
 from kakuro_solver import Cell, KakuroBoard, RunConstraint
+from display_utils import initial_window_size
 
 
 @dataclass(frozen=True)
@@ -253,7 +254,10 @@ class KakuroPlayGUI:
     def __init__(self, board: Optional[KakuroBoard] = None) -> None:
         pygame.init()
         pygame.display.set_caption("Kakuro | Play Mode")
-        self.screen = pygame.display.set_mode((1440, 900), pygame.RESIZABLE)
+        self.screen = pygame.display.set_mode(
+            initial_window_size((980, 760)), pygame.RESIZABLE
+        )
+        pygame.key.start_text_input()
         self.clock = pygame.time.Clock()
         self.session = PlaySession(board)
         self.clues, self.white_cells = build_grid_layout(self.session.board)
@@ -270,6 +274,7 @@ class KakuroPlayGUI:
         self.cell_font = pygame.font.SysFont("segoeui", 26, bold=True)
         self.clue_font = pygame.font.SysFont("segoeui", 15, bold=True)
         self.buttons: Dict[str, pygame.Rect] = {}
+        self._last_key_digit: Optional[int] = None
         self.cell_size = 58
         self.grid_x = 60
         self.grid_y = 150
@@ -278,29 +283,39 @@ class KakuroPlayGUI:
 
     def _layout(self) -> None:
         width, height = self.screen.get_size()
-        self.cell_size = max(
-            30,
-            min(58, (height - 240) // GRID_SIZE, (width - 330) // GRID_SIZE),
-        )
-        self.grid_x = max(30, min(60, width // 16))
-        self.grid_y = 150
-        grid_right = self.grid_x + self.cell_size * GRID_SIZE
-        panel_x = grid_right + 28
-        panel_width = max(260, width - panel_x - 30)
         toolbar_y = height - 90
-        button_width = min(112, max(82, (width - 100) // 6))
+        horizontal_gap = 24
+        self.cell_size = max(
+            24,
+            min(
+                58,
+                (height - 210) // GRID_SIZE,
+                (width - 48 - horizontal_gap - 320) // GRID_SIZE,
+            ),
+        )
+        board_size = self.cell_size * GRID_SIZE
+        self.grid_y = max(120, min(150, toolbar_y - board_size - 24))
+        panel_width = min(380, max(280, width - 48 - board_size - horizontal_gap))
+        content_width = board_size + horizontal_gap + panel_width
+        self.grid_x = max(24, (width - content_width) // 2)
+        panel_x = self.grid_x + board_size + horizontal_gap
         names = ("check", "hint", "undo", "clear", "restart", "mode")
-        labels_y = toolbar_y
+        button_gap = 8
+        button_width = min(112, max(56, (width - 48 - 5 * button_gap) // 6))
+        button_group_width = 6 * button_width + 5 * button_gap
+        button_start_x = max(24, (width - button_group_width) // 2)
         self.buttons = {
             name: pygame.Rect(
-                40 + index * (button_width + 12),
-                labels_y,
+                button_start_x + index * (button_width + button_gap),
+                toolbar_y,
                 button_width,
                 46,
             )
             for index, name in enumerate(names)
         }
-        self.panel_rect = pygame.Rect(panel_x, 150, panel_width, max(220, height - 280))
+        panel_height = min(350, board_size)
+        panel_y = self.grid_y + (board_size - panel_height) // 2
+        self.panel_rect = pygame.Rect(panel_x, panel_y, panel_width, panel_height)
         self.menu_button = pygame.Rect(width - 186, 36, 154, 38)
 
     def _set_message(self, message: str, color: Tuple[int, int, int] = COLORS["muted"]) -> None:
@@ -354,7 +369,19 @@ class KakuroPlayGUI:
             self.screen = pygame.display.set_mode(event.size, pygame.RESIZABLE)
             self._layout()
             return
+        if event.type == pygame.TEXTINPUT:
+            text = event.text
+            if len(text) == 1 and text in "123456789":
+                value = int(text)
+                if value == self._last_key_digit:
+                    self._last_key_digit = None
+                else:
+                    self._enter_digit(value)
+                    self._update_run_highlights()
+            return
         if event.type == pygame.KEYDOWN:
+            digit = self._digit_from_event(event)
+            self._last_key_digit = None
             if event.key == pygame.K_ESCAPE:
                 self.return_to_menu = True
                 self.running = False
@@ -369,15 +396,9 @@ class KakuroPlayGUI:
                     "Đang bật ghi chú." if self.notes_mode else "Đã tắt ghi chú.",
                     COLORS["accent"],
                 )
-            elif pygame.K_1 <= event.key <= pygame.K_9 and self.selected_cell is not None:
-                value = event.key - pygame.K_0
-                if self.notes_mode:
-                    if self.session.toggle_note(self.selected_cell, value):
-                        self._set_message(f"Đã cập nhật ghi chú {value}.", COLORS["accent"])
-                elif self.session.enter_value(self.selected_cell, value):
-                    self._set_message(f"Đã nhập {value} vào ô được chọn.", COLORS["accent"])
-                    if self.session.won:
-                        self._set_message("Chúc mừng! Bạn đã giải đúng Kakuro.", COLORS["green"])
+            elif digit is not None and self.selected_cell is not None:
+                self._last_key_digit = digit
+                self._enter_digit(digit)
             self._update_run_highlights()
             return
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
@@ -392,6 +413,49 @@ class KakuroPlayGUI:
             cell = self._cell_at(event.pos)
             if cell is not None:
                 self._select_cell(cell)
+
+    def _enter_digit(self, value: int) -> None:
+        if self.selected_cell is None:
+            return
+        if self.notes_mode:
+            if self.session.toggle_note(self.selected_cell, value):
+                self._set_message(f"Đã thêm/bỏ ghi chú {value}.", COLORS["accent"])
+        elif self.session.enter_value(self.selected_cell, value):
+            self._set_message(
+                f"Đã nhập {value} vào ô ({self.selected_cell[0] + 1},"
+                f"{self.selected_cell[1] + 1}).",
+                COLORS["accent"],
+            )
+            if self.session.won:
+                self._set_message("Chúc mừng! Bạn đã giải đúng Kakuro.", COLORS["green"])
+
+    @staticmethod
+    def _digit_from_event(event: pygame.event.Event) -> Optional[int]:
+        text = getattr(event, "unicode", "") or ""
+        if len(text) == 1 and text in "123456789":
+            return int(text)
+
+        key_digits = {
+            pygame.K_1: 1,
+            pygame.K_2: 2,
+            pygame.K_3: 3,
+            pygame.K_4: 4,
+            pygame.K_5: 5,
+            pygame.K_6: 6,
+            pygame.K_7: 7,
+            pygame.K_8: 8,
+            pygame.K_9: 9,
+            pygame.K_KP1: 1,
+            pygame.K_KP2: 2,
+            pygame.K_KP3: 3,
+            pygame.K_KP4: 4,
+            pygame.K_KP5: 5,
+            pygame.K_KP6: 6,
+            pygame.K_KP7: 7,
+            pygame.K_KP8: 8,
+            pygame.K_KP9: 9,
+        }
+        return key_digits.get(event.key)
 
     def _handle_action(self, name: str) -> None:
         if name == "check":
@@ -457,11 +521,11 @@ class KakuroPlayGUI:
     def _draw(self) -> None:
         self._layout()
         self.screen.fill(COLORS["background"])
-        self._draw_text("KAKURO", (36, 25), COLORS["accent"], self.small_font)
-        self._draw_text("Play Mode", (36, 44), COLORS["text"], self.title_font)
+        self._draw_text("KAKURO", (self.grid_x, 25), COLORS["accent"], self.small_font)
+        self._draw_text("Play Mode", (self.grid_x, 44), COLORS["text"], self.title_font)
         self._draw_text(
             "Tự suy luận · Không có đáp án tự điền",
-            (38, 91),
+            (self.grid_x + 2, 91),
             COLORS["muted"],
             self.small_font,
         )
@@ -555,34 +619,26 @@ class KakuroPlayGUI:
                 (x, y + 171),
                 COLORS["muted"],
             )
-        help_y = y + 220
-        self._draw_text("CÁCH CHƠI", (x, help_y), COLORS["muted"], self.small_font)
-        help_lines = [
-            "Click hoặc dùng phím mũi tên để chọn ô.",
-            "Nhấn 1–9 để nhập; Backspace để xóa.",
-            "Nhấn N để bật/tắt ghi chú số.",
-            "Run chưa đủ ô vẫn có thể hợp lệ.",
-        ]
-        for index, text in enumerate(help_lines):
-            self._draw_text(text, (x, help_y + 28 + index * 24), COLORS["muted"], self.tiny_font)
-        if self.message:
-            message_y = self.panel_rect.bottom - 74
-            words = self.message.split()
-            lines: List[str] = []
-            current = ""
-            max_width = self.panel_rect.width - 36
-            for word in words:
-                trial = word if not current else f"{current} {word}"
-                if self.small_font.size(trial)[0] <= max_width:
-                    current = trial
-                else:
-                    if current:
-                        lines.append(current)
-                    current = word
-            if current:
-                lines.append(current)
-            for index, line in enumerate(lines[-2:]):
-                self._draw_text(line, (x, message_y + index * 20), self.message_color, self.small_font)
+        pygame.draw.line(
+            self.screen,
+            COLORS["border"],
+            (x, y + 207),
+            (self.panel_rect.right - 18, y + 207),
+            1,
+        )
+        self._draw_text("ĐIỀU KHIỂN", (x, y + 225), COLORS["muted"], self.small_font)
+        instructions = (
+            "Click ô trắng rồi gõ phím 1–9 để nhập số.",
+            "Dùng phím mũi tên để chuyển ô đang chọn.",
+            "Backspace/Delete xóa ô; N bật/tắt ghi chú.",
+        )
+        for index, instruction in enumerate(instructions):
+            self._draw_text(
+                instruction,
+                (x, y + 254 + index * 24),
+                COLORS["muted"],
+                self.small_font,
+            )
 
     def _draw_toolbar(self) -> None:
         labels = {
@@ -604,8 +660,16 @@ class KakuroPlayGUI:
         for name, rect in self.buttons.items():
             self._draw_button(rect, labels[name], colors[name])
         notes_text = "Notes: ON" if self.notes_mode else "Notes: OFF"
-        self._draw_text(notes_text, (42, self.screen.get_height() - 34), COLORS["accent"], self.small_font)
-        self._draw_text(self.message[:88], (220, self.screen.get_height() - 34), self.message_color, self.tiny_font)
+        footer_y = self.screen.get_height() - 34
+        self._draw_text(notes_text, (42, footer_y), COLORS["accent"], self.small_font)
+        message_x = 220
+        available_width = max(0, self.screen.get_width() - message_x - 16)
+        message = self.message
+        while message and self.tiny_font.size(message)[0] > available_width:
+            message = message[:-1]
+        if message != self.message and len(message) > 3:
+            message = message[:-3] + "..."
+        self._draw_text(message, (message_x, footer_y), self.message_color, self.tiny_font)
 
     def _draw_button(
         self,
@@ -629,6 +693,7 @@ class KakuroPlayGUI:
             for event in pygame.event.get():
                 self._handle_event(event)
             self._draw()
+        pygame.key.stop_text_input()
         return self.return_to_menu
 
 
