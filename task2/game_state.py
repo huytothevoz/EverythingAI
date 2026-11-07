@@ -18,16 +18,16 @@ class GameState:
         self.grid_rows = GRID_ROWS 
         self.grid_cols = GRID_COLS
     def copy(self):
-        tanks_copy={Player.MAX:self.tanks[Player.MAX].copy(),Player.MIN:self.tanks[Player.MIN].copy()}
-        bases_copy={Player.MAX:self.bases[Player.MAX].copy(),Player.MIN:self.bases[Player.MIN].copy()}
-        walls_copy={pos:wall.copy() for pos, wall in self.walls.items()}
-        bullets_copy=[b.copy() for b in self.bullets]
-        return GameState(tanks_copy,bases_copy,walls_copy,bullets_copy,self.current_player, self.step_count)
+        tanks_copy = {p: t.copy() for p, t in self.tanks.items()}
+        bases_copy = {p: b.copy() for p, b in self.bases.items()}
+        walls_copy = {pos: w.copy() for pos, w in self.walls.items()}
+        bullets_copy = [b.copy() for b in self.bullets]
+        return GameState(tanks_copy, bases_copy, walls_copy, bullets_copy, self.current_player, self.step_count)
     
     def get_legal_actions(self,player:Player):
         if not self.tanks[player].is_alive():
             return []
-        return [Action.STAY,Action.FIRE,Action.MOVE_DOWN,Action.MOVE_LEFT,Action.MOVE_RIGHT,Action.MOVE_UP]
+        return [Action.MOVE_DOWN,Action.MOVE_LEFT,Action.MOVE_RIGHT,Action.MOVE_UP,Action.STAY,Action.FIRE]
     
     def get_entity_at(self,row, col):
         if (row,col)in self.walls:
@@ -43,10 +43,10 @@ class GameState:
                     if base.position == (row,col):
                         return base        
         return None
-    def is_blocked(self,row,col):
-        if self.get_entity_at(row,col) is None:
-            return False
-        return True
+    def is_blocked(self, row, col):
+        if not is_inside(row, col):
+            return True
+        return self.get_entity_at(row, col) is not None
     def get_current_tank(self):
         return self.tanks[self.current_player]
     def apply_action(self,action):
@@ -72,47 +72,47 @@ class GameState:
         return new_state
     
     def _move_bullets(self):
-        #Đạn bay 3 ô per 1 cycle
-        #Nếu có vật thể trên đường đi thì hit vật thể đó trước và đạn biến mất
         for n_square in range(BULLET_SPEED):
-            moving_intent={} #key(tọa độ điểm đến)-value(List các bullet muốn đến điểm key)
+            moving_intent = {}
+            bullets_to_del = set()
+
             for bullet in self.bullets:
-                new_position=(bullet.position[0] + bullet.direction.value[0],bullet.position[1] + bullet.direction.value[1])
-                if not is_inside(new_position[0],new_position[1]):  
+                new_position = (bullet.position[0] + bullet.direction.value[0],
+                                bullet.position[1] + bullet.direction.value[1])
+                if not is_inside(new_position[0], new_position[1]):
+                    bullets_to_del.add(bullet)   # đạn ra ngoài biên → xoá
                     continue
                 if new_position not in moving_intent:
-                    moving_intent[new_position]=[]
+                    moving_intent[new_position] = []
                 moving_intent[new_position].append(bullet)
 
-            bullets_to_del=set()
-            next_bullets=[]
-            for pos,bullets_at_pos in moving_intent.items():
-                if len(bullets_at_pos)>1:
+            for pos, bullets_at_pos in moving_intent.items():
+                if len(bullets_at_pos) > 1:
                     for bullet in bullets_at_pos:
                         bullets_to_del.add(bullet)
                     continue
-                bullet=bullets_at_pos[0]
-                obj= obj=self.get_entity_at(pos[0],pos[1])
+                bullet = bullets_at_pos[0]
+                if bullet in bullets_to_del:
+                    continue                     # đã bị xoá ở bước này rồi
+                obj = self.get_entity_at(pos[0], pos[1])
                 if obj is not None:
-                    #Nếu vật thể là Thực thể (không phải đạn)
-                    if isinstance(obj,Entity):
+                    if isinstance(obj, Entity):
                         obj.take_damage()
                         if not obj.is_alive():
-                            if isinstance(obj,Tank):
-                              self.tanks.pop(obj.playerID)
-                            if isinstance(obj,Wall):
-                              self.walls.pop(obj.position)
-                            if isinstance(obj,Base):
-                              self.bases.pop(obj.playerID)
-                   #Sử lý va chạm đạn
+                            if isinstance(obj, Tank):
+                                self.tanks.pop(obj.playerID, None)
+                            if isinstance(obj, Wall):
+                                self.walls.pop(obj.position, None)
+                            if isinstance(obj, Base):
+                                self.bases.pop(obj.playerID, None)
                     else:
                         bullets_to_del.add(obj)
-                    #Viên đạn bay trúng vật thể bị huỷe
                     bullets_to_del.add(bullet)
                 else:
-                    bullet.position=pos
-                    next_bullets.append(bullet)
-            self.bullets = [b for b in self.bullets if b not in bullets_to_del]+next_bullets
+                    bullet.position = pos        
+
+            # Lọc sau mỗi bước để không xử lý lại đạn đã chết
+            self.bullets = [b for b in self.bullets if b not in bullets_to_del]
     def is_terminal(self):
         # Kiểm tra an toàn xem Tank và Base có tồn tại trong từ điển không trước khi gọi is_alive()
         max_tank_alive = Player.MAX in self.tanks and self.tanks[Player.MAX].is_alive()

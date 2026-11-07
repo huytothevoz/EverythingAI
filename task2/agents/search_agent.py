@@ -3,29 +3,28 @@ from agents.base_agent import BaseAgent
 from config import Player, Action
 from game_state import GameState
 from evaluation import evaluate 
-
+import random
 class SearchAgent(BaseAgent):
     def __init__(self, max_depth=3, use_alpha_beta=True, use_heuristic=True, name="SearchAgent"):
         super().__init__(name)
         self.max_depth = max_depth
         self.use_alpha_beta = use_alpha_beta
         self.use_heuristic = use_heuristic
-
     def _move_ordering(self, state: GameState, legal_actions: list[Action], maximizing: bool):
-        #Sắp xếp nước đi ưu tiên FIRE và các action chủ động lên đầu để cắt tỉa mạnh hơn
+        if not self.use_heuristic:
+            actions = list(legal_actions)
+            random.shuffle(actions)
+            return actions
+
         scored = []
         for action in legal_actions:
             next_state = state.apply_action(action)
-            # Ưu tiên hành động FIRE
-            priority = 1 if action == Action.FIRE else 0
-            # Hoặc chấm điểm nhanh bằng heuristic nếu có
-            score = evaluate(next_state) if self.use_heuristic else 0
-            scored.append((action, priority, score))
+            # Thêm một lượng random cực nhỏ để phá vỡ thế hòa điểm (tie-breaking)
+            score = evaluate(next_state) + random.uniform(0, 0.01)
+            scored.append((action, score))
         
-        #Sắp xếp: Ưu tiên action có priority cao trước, sau đó đến score theo góc nhìn maximizing
-        scored.sort(key=lambda x: (x[1], x[2]), reverse=maximizing)
+        scored.sort(key=lambda x: x[1], reverse=maximizing)
         return [item[0] for item in scored]
-
     def _search(self, state: GameState, depth: int, alpha: float, beta: float):
         self.nodes_expanded += 1
 

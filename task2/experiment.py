@@ -1,57 +1,61 @@
 import time
-from config import AgentType, Player, Direction
+from config import AgentType, Player, Direction,HP_BASE,HP_TANK,HP_WALL
 from agent_loader import load_agent
 from game_state import GameState
 from entities import Tank, Base, Wall
 from evaluation import evaluate # Đảm bảo import hàm evaluate để chấm điểm cuối trận
-
 def create_sample_game_state():
+    # 1. Khởi tạo Tanks và Bases ở 2 góc đối diện
     tanks = {
-        Player.MAX: Tank(playerID=Player.MAX, position=(6, 11), direction=Direction.UP, hp=100),
-        Player.MIN: Tank(playerID=Player.MIN, position=(6, 1), direction=Direction.DOWN, hp=100)
+        Player.MAX: Tank(playerID=Player.MAX, position=(16, 16), direction=Direction.UP, hp=HP_TANK),
+        Player.MIN: Tank(playerID=Player.MIN, position=(3, 3), direction=Direction.DOWN, hp=HP_TANK)
     }
     
     bases = {
-        Player.MAX: Base(playerID=Player.MAX, position=(6, 12), hp=100), # Base nhà mình ở phía dưới
-        Player.MIN: Base(playerID=Player.MIN, position=(6, 0), hp=100)   # Base địch ở phía trên
+        Player.MAX: Base(playerID=Player.MAX, position=(18, 18), hp=HP_BASE), # Góc dưới phải
+        Player.MIN: Base(playerID=Player.MIN, position=(1, 1), hp=HP_BASE)    # Góc trên trái
     }
     
-    # Tạo hệ thống 1 loại tường (Wall) bố trí giống cấu trúc chướng ngại vật trong ảnh
     walls = {}
     
-    # 1. Xây tường bảo vệ xung quanh Base MAX (phía dưới) và Base MIN (phía trên)
-    for x in range(5, 8):
-        walls[(x, 11)] = Wall(position=(x, 11))
-    walls[(5, 12)] = Wall(position=(5, 12))
-    walls[(7, 12)] = Wall(position=(7, 12))
-    
-    for x in range(5, 8):
-        walls[(x, 1)] = Wall(position=(x, 1))
-    walls[(5, 0)] = Wall(position=(5, 0))
-    walls[(7, 0)] = Wall(position=(7, 0))
+    for coord in [(0, 2), (0, 3), (2, 0), (3, 0), (2, 2)]:
+        walls[coord] = Wall(position=coord)
+        
+    # Bảo vệ MAX Base (18,18)
+    for coord in [(19, 17), (19, 16), (17, 19), (16, 19), (17, 17)]:
+        walls[coord] = Wall(position=coord)
 
-    # 2. Xây các khối tường chướng ngại vật ở giữa bản đồ (tạo hành lang trái/phải/giữa)
-    obstacle_coords = [
-        # Khối chắn bên trái
-        (2, 3), (3, 3), (4, 3),
-        (2, 6), (3, 6), (4, 6),
-        (2, 9), (3, 9), (4, 9),
-        
-        # Khối chắn bên phải
-        (8, 3), (9, 3), (10, 3),
-        (8, 6), (9, 6), (10, 6),
-        (8, 9), (9, 9), (10, 9),
-        
-        # Một số tường rải rác khu vực trung tâm
-        (6, 4), (6, 8)
+    min_side_walls = [
+        (5, 5), (5, 6), (5, 7), (5, 8),
+        (8, 5), (9, 5), (10, 5),
+        (4, 10), (5, 10), (6, 10), (7, 10), (7, 11), (7, 12)
     ]
     
-    for coord in obstacle_coords:
+    max_side_walls = [
+        (14, 14), (14, 13), (14, 12), (14, 11),
+        (11, 14), (10, 14), (9, 14),
+        (15, 9), (14, 9), (13, 9), (12, 9), (12, 8), (12, 7)
+    ]
+    center_walls = [
+        (8, 8), 
+        (8, 11), (9, 11), (10, 11), (11, 11),
+        (11, 8), (11, 9), (11, 10)
+    ]
+
+    all_walls = min_side_walls + max_side_walls + center_walls + [(1, 0), (1, 3), (4, 0), (4, 1), (4, 2), 
+            (18, 19), (18, 16), (15, 19), (15, 18), (15, 17),
+            (0, 10), (1, 9), (2, 8), (3, 7), (4, 6), (6, 11),
+            (19, 9), (18, 10), (17, 11), (16, 12), (15, 13), (13, 8),
+            (6, 0), (11, 18), (4, 9), (15, 10)]
+
+
+    # Gộp tất cả các bức tường vào dictionary
+    for coord in all_walls:
         walls[coord] = Wall(position=coord)
 
     bullets = []
     
-    # Trả về GameState hoàn chỉnh với kích thước bàn cờ ví dụ 13x13
+    # Trả về GameState hoàn chỉnh
     return GameState(
         tanks=tanks, 
         bases=bases, 
@@ -60,7 +64,6 @@ def create_sample_game_state():
         current_player=Player.MAX, 
         step_count=0
     )
-
 class BenchmarkExperiment:
     def __init__(self, depth=3, max_steps=50):
         self.depth = depth
@@ -131,7 +134,7 @@ class BenchmarkExperiment:
        
         print(f"Thí nghiệm: (Depth={self.depth})")
        
-
+    
         for agent_type in self.agent_types:
             res = self.run_match_simulation(agent_type, initial_state)
             results.append(res)
