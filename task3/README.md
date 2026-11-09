@@ -74,8 +74,8 @@ quay lại menu.
 - Panel hiển thị domain, gán giá trị, mâu thuẫn, quay lui và `SolverStats` thật.
 - Chế độ None có thể rất chậm trên bảng 9×9; dùng Reset để dừng và thử cấu hình
   khác.
-- Cửa sổ tự chọn kích thước vừa màn hình khi khởi động; có thể kéo đổi kích
-  thước, giao diện AI Solver sẽ thu/phóng theo tỉ lệ và giữ các nút tương tác.
+- Cửa sổ AI Solver mở ở kích thước gọn 1280×720, tự giới hạn theo màn hình;
+  chữ và bảng được bố trí để dễ đọc, giữ đúng tỉ lệ khi kéo đổi kích thước.
 
 ## Cấu trúc source
 
@@ -87,12 +87,13 @@ task3/
 ├── eval_benchmark.py       # Benchmark backend trên puzzle 9×9
 ├── kakuro_gui.py           # Giao diện và trực quan hóa AI Solver
 ├── kakuro_game.py          # Play Mode, luật chơi và trạng thái riêng
-├── display_utils.py        # Chọn kích thước cửa sổ theo màn hình
 └── requirements.txt        # Pygame
 ```
 
 Không cần asset hoặc đường dẫn tuyệt đối; font được chọn qua Pygame và hệ
-thống thay bằng font mặc định nếu font yêu cầu không có.
+thống thay bằng font mặc định nếu font yêu cầu không có. Mỗi giao diện tự
+chọn kích thước cửa sổ khởi động theo màn hình; AI Solver dùng bố cục gọn,
+chữ rõ hơn và giữ ô Kakuro vuông khi thay đổi kích thước.
 
 ## Kiểm tra và benchmark
 

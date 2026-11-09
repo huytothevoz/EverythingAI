@@ -10,19 +10,18 @@ from typing import Dict, Iterable, List, Mapping, Optional, Set, Tuple
 import pygame
 
 from boards import make_assignment_board
-from display_utils import initial_window_size
 from kakuro_solver import Cell, KakuroBoard, KakuroSolver, SolverEvent
 
 Color = Tuple[int, int, int]
 
-WINDOW_WIDTH = 1440
-WINDOW_HEIGHT = 900
+WINDOW_WIDTH = 1280
+WINDOW_HEIGHT = 720
 GRID_SIZE = 9
-CELL_SIZE = 58
-GRID_X = 276
-GRID_Y = 150
-PANEL_X = 820
-PANEL_WIDTH = 590
+CELL_SIZE = 52
+GRID_X = 248
+GRID_Y = 126
+PANEL_X = 748
+PANEL_WIDTH = 502
 
 COLORS: Dict[str, Color] = {
     "background": (12, 18, 32),
@@ -31,7 +30,7 @@ COLORS: Dict[str, Color] = {
     "panel_alt": (27, 39, 62),
     "border": (48, 63, 88),
     "text": (235, 241, 250),
-    "muted": (150, 164, 186),
+    "muted": (166, 178, 198),
     "white_cell": (235, 241, 248),
     "white_text": (25, 38, 57),
     "black_cell": (27, 35, 51),
@@ -45,6 +44,24 @@ COLORS: Dict[str, Color] = {
     "clue_down": (112, 190, 255),
     "domain_removed": (250, 116, 128),
 }
+
+
+def _initial_window_size(
+    desired_size: Tuple[int, int],
+    margins: Tuple[int, int] = (32, 96),
+) -> Tuple[int, int]:
+    """Choose a startup size that leaves room for desktop borders and taskbars."""
+    desktop_sizes = pygame.display.get_desktop_sizes()
+    if desktop_sizes:
+        desktop_width, desktop_height = desktop_sizes[0]
+    else:
+        display_info = pygame.display.Info()
+        desktop_width, desktop_height = display_info.current_w, display_info.current_h
+
+    return (
+        min(desired_size[0], max(1, desktop_width - margins[0])),
+        min(desired_size[1], max(1, desktop_height - margins[1])),
+    )
 
 
 class _RunCancelled(Exception):
@@ -91,21 +108,25 @@ class KakuroGUI:
     def __init__(self, board: Optional[KakuroBoard] = None) -> None:
         pygame.init()
         pygame.display.set_caption("Kakuro CSP | AI Learning Lab")
-        window_size = initial_window_size((WINDOW_WIDTH, WINDOW_HEIGHT))
+        window_size = _initial_window_size(
+            (WINDOW_WIDTH, WINDOW_HEIGHT), margins=(32, 48)
+        )
         self.window = pygame.display.set_mode(window_size, pygame.RESIZABLE)
         self.screen = pygame.Surface((WINDOW_WIDTH, WINDOW_HEIGHT))
+        self._logical_width = WINDOW_WIDTH
+        self.panel_width = PANEL_WIDTH
         self._update_viewport()
         self.clock = pygame.time.Clock()
         self.board = board or make_assignment_board()
         self.clues, self.white_cells = build_grid_layout(self.board)
 
-        self.font = pygame.font.SysFont("segoeui", 17)
-        self.small_font = pygame.font.SysFont("segoeui", 13)
-        self.tiny_font = pygame.font.SysFont("segoeui", 10)
-        self.heading_font = pygame.font.SysFont("segoeui", 23, bold=True)
-        self.title_font = pygame.font.SysFont("segoeui", 29, bold=True)
-        self.cell_font = pygame.font.SysFont("segoeui", 25, bold=True)
-        self.clue_font = pygame.font.SysFont("segoeui", 15, bold=True)
+        self.font = pygame.font.SysFont("segoeui", 19)
+        self.small_font = pygame.font.SysFont("segoeui", 16)
+        self.tiny_font = pygame.font.SysFont("segoeui", 13)
+        self.heading_font = pygame.font.SysFont("segoeui", 25, bold=True)
+        self.title_font = pygame.font.SysFont("segoeui", 28, bold=True)
+        self.cell_font = pygame.font.SysFont("segoeui", 28, bold=True)
+        self.clue_font = pygame.font.SysFont("segoeui", 17, bold=True)
 
         self.propagation = "gac"
         self.use_mrv = True
@@ -139,16 +160,17 @@ class KakuroGUI:
         self._make_controls()
 
     def _make_controls(self) -> None:
+        controls_shift = max(0, (self._logical_width - WINDOW_WIDTH) // 2)
         self.propagation_rect = pygame.Rect(28, 230, 194, 44)
         self.mrv_rect = pygame.Rect(30, 308, 24, 24)
         self.degree_rect = pygame.Rect(30, 353, 24, 24)
         self.lcv_rect = pygame.Rect(30, 398, 24, 24)
-        self.start_rect = pygame.Rect(275, 788, 112, 48)
-        self.pause_rect = pygame.Rect(399, 788, 128, 48)
-        self.step_rect = pygame.Rect(539, 788, 104, 48)
-        self.reset_rect = pygame.Rect(655, 788, 104, 48)
-        self.mode_rect = pygame.Rect(276, 82, 142, 36)
-        self.speed_track = pygame.Rect(905, 807, 220, 8)
+        self.start_rect = pygame.Rect(260, 650, 112, 46)
+        self.pause_rect = pygame.Rect(384, 650, 128, 46)
+        self.step_rect = pygame.Rect(524, 650, 104, 46)
+        self.reset_rect = pygame.Rect(640, 650, 104, 46)
+        self.mode_rect = pygame.Rect(248, 82, 142, 36)
+        self.speed_track = pygame.Rect(790 + controls_shift, 678, 180, 8)
         self.speed_handle = pygame.Rect(0, 0, 18, 24)
         self.dragging_speed = False
 
@@ -398,6 +420,7 @@ class KakuroGUI:
                 (max(1, event.w), max(1, event.h)), pygame.RESIZABLE
             )
             self._update_viewport()
+            self._make_controls()
             return
 
         if event.type == pygame.KEYDOWN:
@@ -414,7 +437,7 @@ class KakuroGUI:
                 self.reset()
 
         if event.type == pygame.MOUSEWHEEL:
-            event_rect = pygame.Rect(PANEL_X + 16, 300, PANEL_WIDTH - 32, 272)
+            event_rect = pygame.Rect(PANEL_X + 16, 310, self.panel_width - 32, 170)
             mouse_pos = self._to_logical(pygame.mouse.get_pos())
             if event_rect.collidepoint(mouse_pos):
                 self._event_scroll = max(
@@ -489,12 +512,19 @@ class KakuroGUI:
 
     def _update_viewport(self) -> None:
         window_width, window_height = self.window.get_size()
+        self._logical_width = max(
+            WINDOW_WIDTH,
+            round(window_width * WINDOW_HEIGHT / window_height),
+        )
+        self.panel_width = max(PANEL_WIDTH, self._logical_width - PANEL_X - 30)
+        if self.screen.get_width() != self._logical_width:
+            self.screen = pygame.Surface((self._logical_width, WINDOW_HEIGHT))
         self._viewport_scale = min(
-            window_width / WINDOW_WIDTH,
+            window_width / self._logical_width,
             window_height / WINDOW_HEIGHT,
         )
         self._viewport_size = (
-            max(1, round(WINDOW_WIDTH * self._viewport_scale)),
+            max(1, round(self._logical_width * self._viewport_scale)),
             max(1, round(WINDOW_HEIGHT * self._viewport_scale)),
         )
         self._viewport_offset = (
@@ -529,7 +559,7 @@ class KakuroGUI:
 
     def _draw(self) -> None:
         self.screen.fill(COLORS["background"])
-        pygame.draw.rect(self.screen, COLORS["sidebar"], (0, 0, 248, WINDOW_HEIGHT))
+        pygame.draw.rect(self.screen, COLORS["sidebar"], (0, 0, 224, WINDOW_HEIGHT))
         self._draw_header()
         self._draw_sidebar()
         self._draw_board()
@@ -546,16 +576,20 @@ class KakuroGUI:
     def _draw_header(self) -> None:
         self._draw_text("KAKURO", 28, 28, COLORS["accent"], self.small_font)
         self._draw_text("CSP Solver Lab", 28, 48, COLORS["text"], self.title_font)
-        self._draw_text("TRỰC QUAN HÓA RÀNG BUỘC", 276, 45, COLORS["muted"], self.small_font)
+        self._draw_text("TRỰC QUAN HÓA RÀNG BUỘC", 248, 45, COLORS["muted"], self.small_font)
         self._draw_button(self.mode_rect, "← Chọn chế độ", COLORS["panel_alt"])
         status_color = COLORS["green"] if self._solution is not None else (
             COLORS["red"] if self.error_message or self.status == "Không tìm thấy nghiệm"
             else COLORS["accent"]
         )
-        status_rect = pygame.Rect(1170, 36, 238, 38)
+        status_rect = pygame.Rect(self._logical_width - 270, 36, 238, 38)
         pygame.draw.rect(self.screen, COLORS["panel"], status_rect, border_radius=18)
-        pygame.draw.circle(self.screen, status_color, (1190, 55), 5)
-        self._draw_text(self.status, 1203, 45, COLORS["text"], self.small_font)
+        pygame.draw.circle(
+            self.screen, status_color, (status_rect.x + 20, 55), 5
+        )
+        self._draw_text(
+            self.status, status_rect.x + 33, 45, COLORS["text"], self.small_font
+        )
 
     def _draw_sidebar(self) -> None:
         self._draw_text("CẤU HÌNH", 28, 126, COLORS["muted"], self.small_font)
@@ -581,7 +615,20 @@ class KakuroGUI:
             )
             pygame.draw.rect(self.screen, COLORS["border"], rect, 1, border_radius=5)
             if enabled:
-                self._draw_text("✓", rect.x + 4, rect.y + 1, COLORS["background"], self.font)
+                pygame.draw.line(
+                    self.screen,
+                    COLORS["background"],
+                    (rect.x + 5, rect.y + 12),
+                    (rect.x + 10, rect.y + 17),
+                    2,
+                )
+                pygame.draw.line(
+                    self.screen,
+                    COLORS["background"],
+                    (rect.x + 10, rect.y + 17),
+                    (rect.x + 19, rect.y + 7),
+                    2,
+                )
             self._draw_text(title, 66, rect.y - 3, COLORS["text"], self.font)
             self._draw_text(subtitle, 66, rect.y + 20, COLORS["muted"], self.tiny_font)
         pygame.draw.line(self.screen, COLORS["border"], (28, 460), (220, 460), 1)
@@ -591,8 +638,8 @@ class KakuroGUI:
         self._draw_text("Mỗi ô trắng là một biến.", 28, 590, COLORS["muted"], self.small_font)
         self._draw_text("Mỗi dãy có tổng và các số", 28, 611, COLORS["muted"], self.small_font)
         self._draw_text("không lặp lại.", 28, 631, COLORS["muted"], self.small_font)
-        self._draw_text("BÀI 08 · CONSTRAINT", 28, 705, COLORS["accent"], self.tiny_font)
-        self._draw_text("SATISFACTION PROBLEMS", 28, 723, COLORS["muted"], self.tiny_font)
+        self._draw_text("BÀI 08 · CONSTRAINT", 28, 680, COLORS["accent"], self.tiny_font)
+        self._draw_text("SATISFACTION PROBLEMS", 28, 698, COLORS["muted"], self.tiny_font)
 
     def _draw_board(self) -> None:
         grid_rect = pygame.Rect(GRID_X - 4, GRID_Y - 4, GRID_SIZE * CELL_SIZE + 8, GRID_SIZE * CELL_SIZE + 8)
@@ -656,25 +703,22 @@ class KakuroGUI:
         pygame.draw.line(
             self.screen,
             COLORS["border"],
-            (rect.left + 2, rect.bottom - 2),
-            (rect.right - 2, rect.top + 2),
+            (rect.left + 2, rect.top + 2),
+            (rect.right - 2, rect.bottom - 2),
             2,
         )
         if "across" in clue:
-            self._draw_text(
-                str(clue["across"]),
-                rect.x + 5,
-                rect.y + 4,
-                COLORS["clue_across"],
-                self.clue_font,
+            text = self.clue_font.render(
+                str(clue["across"]), True, COLORS["clue_across"]
             )
+            self.screen.blit(text, text.get_rect(topright=(rect.right - 5, rect.top + 4)))
         if "down" in clue:
             text = self.clue_font.render(str(clue["down"]), True, COLORS["clue_down"])
-            self.screen.blit(text, text.get_rect(bottomright=(rect.right - 5, rect.bottom - 4)))
+            self.screen.blit(text, text.get_rect(bottomleft=(rect.left + 5, rect.bottom - 4)))
         pygame.draw.rect(self.screen, COLORS["border"], rect, 1)
 
     def _draw_right_panel(self) -> None:
-        self._draw_panel((PANEL_X, 126, PANEL_WIDTH, 154), "MIỀN GIÁ TRỊ")
+        self._draw_panel((PANEL_X, 126, self.panel_width, 138), "MIỀN GIÁ TRỊ")
         cell = self.selected_cell or self.active_cell
         if cell is None:
             domain_label = "Chọn một ô trắng để xem miền."
@@ -682,22 +726,24 @@ class KakuroGUI:
             domain = self.domains.get(cell, set())
             domain_label = f"Ô {self._cell_text(cell)}  ·  {len(domain)} giá trị"
         self._draw_text(domain_label, PANEL_X + 18, 163, COLORS["muted"], self.small_font)
-        self._draw_domain_chips(cell, PANEL_X + 18, 190)
-        self._draw_text("Đỏ = giá trị đã bị loại gần nhất", PANEL_X + 18, 244, COLORS["muted"], self.tiny_font)
+        chip_width = 9 * 40 + 8 * 8
+        chip_x = PANEL_X + max(18, (self.panel_width - chip_width) // 2)
+        self._draw_domain_chips(cell, chip_x, 184)
+        self._draw_text("Đỏ = giá trị đã bị loại gần nhất", PANEL_X + 18, 232, COLORS["muted"], self.tiny_font)
 
-        self._draw_panel((PANEL_X, 294, PANEL_WIDTH, 278), "SOLVER EVENTS")
+        self._draw_panel((PANEL_X, 276, self.panel_width, 216), "SOLVER EVENTS")
         if not self._event_lines:
             self._draw_text(
                 "Các sự kiện thật từ SolverEvent sẽ xuất hiện ở đây.",
                 PANEL_X + 18,
-                336,
+                316,
                 COLORS["muted"],
                 self.small_font,
             )
         else:
             self._draw_event_log()
 
-        self._draw_panel((PANEL_X, 586, PANEL_WIDTH, 158), "THỐNG KÊ SOLVER")
+        self._draw_panel((PANEL_X, 504, self.panel_width, 128), "THỐNG KÊ SOLVER")
         self._draw_stats()
 
     def _draw_panel(self, rect_tuple: Tuple[int, int, int, int], title: str) -> None:
@@ -712,16 +758,17 @@ class KakuroGUI:
         current = self.domains.get(cell, set())
         removed = self._last_removed.get(cell, set())
         for value in range(1, 10):
-            rect = pygame.Rect(x + (value - 1) * 58, y, 48, 38)
+            rect = pygame.Rect(x + (value - 1) * 48, y, 40, 38)
             color = COLORS["accent_dark"] if value in current else COLORS["panel_alt"]
             text_color = COLORS["text"] if value in current else COLORS["muted"]
             pygame.draw.rect(self.screen, color, rect, border_radius=7)
             if value in removed and value not in current:
                 pygame.draw.line(self.screen, COLORS["domain_removed"], (rect.x + 7, rect.centery), (rect.right - 7, rect.centery), 2)
-            self._draw_text(str(value), rect.x + 18, rect.y + 8, text_color, self.font)
+            text = self.font.render(str(value), True, text_color)
+            self.screen.blit(text, text.get_rect(center=rect.center))
 
     def _draw_event_log(self) -> None:
-        area = pygame.Rect(PANEL_X + 16, 330, PANEL_WIDTH - 32, 226)
+        area = pygame.Rect(PANEL_X + 16, 310, self.panel_width - 32, 170)
         clip = self.screen.get_clip()
         self.screen.set_clip(area)
         visible: List[Tuple[str, Color]] = []
@@ -767,20 +814,29 @@ class KakuroGUI:
             ("Mâu thuẫn", "contradictions", ""),
             ("Số nghiệm", "solutions_found", ""),
         )
+        stats_width = 460
+        stats_x = PANEL_X + max(18, (self.panel_width - stats_width) // 2)
         for index, (label, key, unit) in enumerate(labels):
             col = index % 2
             row = index // 2
-            x = PANEL_X + 18 + col * 280
-            y = 624 + row * 28
+            x = stats_x + col * 230
+            y = 536 + row * 23
             value = "—" if self._stats is None else str(self._stats.get(key, "—"))
             if key == "elapsed_ms" and self._stats is not None:
                 value = f"{float(self._stats.get(key, 0)):.3f}"
             self._draw_text(label, x, y, COLORS["muted"], self.tiny_font)
-            self._draw_text(f"{value} {unit}".rstrip(), x + 143, y - 2, COLORS["text"], self.small_font)
+            self._draw_text(f"{value} {unit}".rstrip(), x + 132, y - 2, COLORS["text"], self.small_font)
 
     def _draw_controls(self) -> None:
-        pygame.draw.rect(self.screen, COLORS["sidebar"], (248, 766, WINDOW_WIDTH - 248, 134))
-        pygame.draw.line(self.screen, COLORS["border"], (248, 766), (WINDOW_WIDTH, 766), 1)
+        controls_shift = self.speed_track.x - 790
+        pygame.draw.rect(
+            self.screen,
+            COLORS["sidebar"],
+            (224, 638, self._logical_width - 224, 82),
+        )
+        pygame.draw.line(
+            self.screen, COLORS["border"], (224, 638), (self._logical_width, 638), 1
+        )
         self._draw_button(self.start_rect, "Bắt đầu", COLORS["accent_dark"])
         self._draw_button(
             self.pause_rect,
@@ -789,7 +845,13 @@ class KakuroGUI:
         )
         self._draw_button(self.step_rect, "Bước  →", COLORS["panel_alt"])
         self._draw_button(self.reset_rect, "Đặt lại", COLORS["panel_alt"])
-        self._draw_text("TỐC ĐỘ SỰ KIỆN", 805, 786, COLORS["muted"], self.tiny_font)
+        self._draw_text(
+            "TỐC ĐỘ SỰ KIỆN",
+            760 + controls_shift,
+            650,
+            COLORS["muted"],
+            self.tiny_font,
+        )
         pygame.draw.rect(self.screen, COLORS["border"], self.speed_track, border_radius=4)
         fraction = (self.speed - 0.5) / 29.5
         fill_width = int(self.speed_track.width * fraction)
@@ -801,12 +863,24 @@ class KakuroGUI:
         )
         self.speed_handle.center = (self.speed_track.x + fill_width, self.speed_track.centery)
         pygame.draw.rect(self.screen, COLORS["text"], self.speed_handle, border_radius=6)
-        self._draw_text(f"{self.speed:g} sự kiện/giây", 1145, 801, COLORS["text"], self.small_font)
-        self._draw_text("Phím tắt: Space tạm dừng · → bước · R đặt lại", 805, 835, COLORS["muted"], self.tiny_font)
+        self._draw_text(
+            f"{self.speed:g} sự kiện/giây",
+            990 + controls_shift,
+            672,
+            COLORS["text"],
+            self.small_font,
+        )
+        self._draw_text(
+            "Phím tắt: Space tạm dừng · → bước · R đặt lại",
+            760 + controls_shift,
+            699,
+            COLORS["muted"],
+            self.tiny_font,
+        )
         if self.error_message:
-            self._draw_text("Chi tiết lỗi: " + self.error_message[:70], 276, 744, COLORS["red"], self.tiny_font)
+            self._draw_text("Chi tiết lỗi: " + self.error_message[:70], 260, 614, COLORS["red"], self.tiny_font)
         else:
-            self._draw_text(self.status_detail[:96], 276, 744, COLORS["muted"], self.tiny_font)
+            self._draw_text(self.status_detail[:96], 260, 614, COLORS["muted"], self.tiny_font)
 
     def _draw_button(self, rect: pygame.Rect, label: str, color: Color) -> None:
         pygame.draw.rect(self.screen, color, rect, border_radius=9)

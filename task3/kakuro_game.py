@@ -11,7 +11,24 @@ import pygame
 from boards import make_assignment_board
 from kakuro_gui import COLORS, GRID_SIZE, build_grid_layout
 from kakuro_solver import Cell, KakuroBoard, RunConstraint
-from display_utils import initial_window_size
+
+
+def _initial_window_size(
+    desired_size: Tuple[int, int],
+    margins: Tuple[int, int] = (32, 96),
+) -> Tuple[int, int]:
+    """Choose a startup size that leaves room for desktop borders and taskbars."""
+    desktop_sizes = pygame.display.get_desktop_sizes()
+    if desktop_sizes:
+        desktop_width, desktop_height = desktop_sizes[0]
+    else:
+        display_info = pygame.display.Info()
+        desktop_width, desktop_height = display_info.current_w, display_info.current_h
+
+    return (
+        min(desired_size[0], max(1, desktop_width - margins[0])),
+        min(desired_size[1], max(1, desktop_height - margins[1])),
+    )
 
 
 @dataclass(frozen=True)
@@ -255,7 +272,7 @@ class KakuroPlayGUI:
         pygame.init()
         pygame.display.set_caption("Kakuro | Play Mode")
         self.screen = pygame.display.set_mode(
-            initial_window_size((980, 760)), pygame.RESIZABLE
+            _initial_window_size((980, 760)), pygame.RESIZABLE
         )
         pygame.key.start_text_input()
         self.clock = pygame.time.Clock()
@@ -581,21 +598,19 @@ class KakuroPlayGUI:
         pygame.draw.line(
             self.screen,
             COLORS["border"],
-            (rect.left + 2, rect.bottom - 2),
-            (rect.right - 2, rect.top + 2),
+            (rect.left + 2, rect.top + 2),
+            (rect.right - 2, rect.bottom - 2),
             2,
         )
         clue = self.clues[cell]
         if "across" in clue:
-            self._draw_text(
-                str(clue["across"]),
-                (rect.x + 4, rect.y + 3),
-                COLORS["clue_across"],
-                self.clue_font,
+            surface = self.clue_font.render(
+                str(clue["across"]), True, COLORS["clue_across"]
             )
+            self.screen.blit(surface, surface.get_rect(topright=(rect.right - 4, rect.top + 3)))
         if "down" in clue:
             surface = self.clue_font.render(str(clue["down"]), True, COLORS["clue_down"])
-            self.screen.blit(surface, surface.get_rect(bottomright=(rect.right - 4, rect.bottom - 3)))
+            self.screen.blit(surface, surface.get_rect(bottomleft=(rect.left + 4, rect.bottom - 3)))
         pygame.draw.rect(self.screen, COLORS["border"], rect, 1)
 
     def _draw_side_panel(self) -> None:

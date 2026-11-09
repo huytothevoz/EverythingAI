@@ -6,9 +6,26 @@ from typing import Dict, Optional, Tuple
 
 import pygame
 
-from display_utils import initial_window_size
 from kakuro_game import KakuroPlayGUI
 from kakuro_gui import COLORS, KakuroGUI
+
+
+def _initial_window_size(
+    desired_size: Tuple[int, int],
+    margins: Tuple[int, int] = (32, 96),
+) -> Tuple[int, int]:
+    """Choose a startup size that leaves room for desktop borders and taskbars."""
+    desktop_sizes = pygame.display.get_desktop_sizes()
+    if desktop_sizes:
+        desktop_width, desktop_height = desktop_sizes[0]
+    else:
+        display_info = pygame.display.Info()
+        desktop_width, desktop_height = display_info.current_w, display_info.current_h
+
+    return (
+        min(desired_size[0], max(1, desktop_width - margins[0])),
+        min(desired_size[1], max(1, desktop_height - margins[1])),
+    )
 
 
 class MainMenu:
@@ -18,7 +35,7 @@ class MainMenu:
         pygame.init()
         pygame.display.set_caption("KAKURO — CSP PUZZLE SOLVER")
         self.screen = pygame.display.set_mode(
-            initial_window_size((960, 720)), pygame.RESIZABLE
+            _initial_window_size((960, 720)), pygame.RESIZABLE
         )
         self.clock = pygame.time.Clock()
         self.running = True
@@ -96,13 +113,13 @@ class MainMenu:
         return rect
 
     def _draw(self) -> None:
-        width, height = self.screen.get_size()
+        width = self.screen.get_width()
         self._layout()
         self.screen.fill(COLORS["background"])
         if self.page == "menu":
             self._draw_menu(width)
         else:
-            self._draw_info_page(width, height)
+            self._draw_info_page(width)
         pygame.display.flip()
 
     def _draw_menu(self, width: int) -> None:
@@ -130,7 +147,7 @@ class MainMenu:
             label, color = labels[name]
             self._draw_button(rect, label, color)
 
-    def _draw_info_page(self, width: int, height: int) -> None:
+    def _draw_info_page(self, width: int) -> None:
         self._draw_button(self.back_button, "← Main Menu", COLORS["panel_alt"])
         if self.page == "how":
             title = "How to Play"
