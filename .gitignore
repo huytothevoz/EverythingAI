@@ -1,0 +1,7 @@
+__pycache__/
+*.py[cod]
+.vscode/
+tempCodeRunnerFile.py
+.DS_Store
+Thumbs.db
+*.zip
