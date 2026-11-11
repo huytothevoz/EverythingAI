@@ -1,94 +1,50 @@
-"""
-kakuro_solver.py
-================
+"""Các thuật toán tìm kiếm và lan truyền ràng buộc để giải Kakuro.
 
-Cài đặt CSP hướng đối tượng để giải Kakuro.
+Mô hình biến, miền, ràng buộc và đồ thị được định nghĩa trong kakuro_csp.py.
+File này dùng mô hình đó theo quy trình:
+- Propagation: loại sớm giá trị không thể dẫn tới nghiệm.
+- GAC: với từng run nhiều biến, mỗi giá trị còn lại phải có ít nhất một bộ
+  giá trị hợp lệ hỗ trợ. Khi miền đổi, đưa các run giao với ô đó vào hàng đợi.
+- Forward Checking: sau khi gán một ô, chỉ cập nhật các run chứa ô vừa gán.
+- Backtracking: thử một giá trị, giải tiếp bài toán con; nếu mâu thuẫn thì
+  bỏ nhánh đó và thử giá trị kế tiếp.
+- MRV chọn ô có miền nhỏ nhất; Degree phá hòa bằng cách chọn ô có nhiều láng
+  giềng chưa gán nhất; LCV thử giá trị làm mất ít lựa chọn của láng giềng nhất.
 
-Liên hệ với bài học (503043 - Nhập môn AI, Bài 08):
-- Biểu diễn CSP gồm ba thành phần: Biến (Variables), Miền giá trị (Domains)
-  và Ràng buộc (Constraints).
-- Lan truyền ràng buộc:
-    * Kiểm tra xuôi (Forward Checking).
-    * Nhất quán cung tổng quát (GAC), dùng hàng đợi theo ý tưởng của AC-3.
-- Tìm kiếm quay lui (Backtracking Search).
-- Chọn biến: MRV và heuristic Degree.
-- Sắp xếp giá trị: LCV.
-
-Vì sao dùng GAC thay vì AC-3 nhị phân thông thường?
-----------------------------------------------------
-Mỗi dãy Kakuro vốn là một ràng buộc nhiều biến (n-ary):
-    tổng các ô == tổng cần đạt VÀ các chữ số phải khác nhau.
-AC-3 thông thường được định nghĩa cho ràng buộc nhị phân. Vì vậy, mô-đun này
-áp dụng nguyên tắc hàng đợi và kiểm tra lại ràng buộc (queue-and-revise) cho
-các cặp biến/dãy, để đảm bảo GAC trên toàn bộ từng dãy. Cách này sát với
-các ràng buộc thực tế của Kakuro hơn.
-
-Mô-đun không phụ thuộc vào framework giao diện nào. GUI có thể đăng ký hàm
-callback sự kiện của bộ giải để hiển thị việc thu hẹp miền, gán giá trị,
-mâu thuẫn và quay lui.
-
-Biểu diễn bảng
----------------
-Bảng được mô tả bằng danh sách các đối tượng RunConstraint. Mỗi dãy gồm:
-- cells: bộ tọa độ (hàng, cột) có thứ tự.
-- target: tổng cần đạt.
-- direction: "across" (ngang) hoặc "down" (dọc), dùng làm thông tin cho GUI.
-
-Mỗi ô trắng phải thuộc ít nhất một dãy ngang và một dãy dọc. Tọa độ bắt đầu
-từ 0. Việc vẽ lưới ô đen/trắng do mô-đun GUI phụ trách.
-
-Ví dụ
------
-    board = KakuroBoard(
-        runs=[
-            RunConstraint("A1", [(1, 1), (1, 2)], 3, "across"),
-            RunConstraint("A2", [(2, 1), (2, 2)], 7, "across"),
-            RunConstraint("D1", [(1, 1), (2, 1)], 4, "down"),
-            RunConstraint("D2", [(1, 2), (2, 2)], 6, "down"),
-        ]
-    )
-    solver = KakuroSolver(board)
-    solution = solver.solve()
-
-Không cần cài thêm thư viện bên thứ ba. Tương thích với Python 3.9 trở lên.
+GAC ở đây áp dụng ý tưởng queue/revise của AC-3 cho ràng buộc nhiều biến;
+đây không phải cài đặt AC-3 nhị phân thông thường. Các sự kiện của solver
+được gửi tới callback để GUI trực quan hóa domain, gán số và quay lui.
 """
 
 from __future__ import annotations
 
-from collections import defaultdict, deque
-from dataclasses import dataclass, field
-from itertools import permutations
+from collections import deque
+from dataclasses import dataclass
 from time import perf_counter
 from typing import (
     Callable,
     Deque,
     Dict,
-    FrozenSet,
     Iterable,
     List,
     Mapping,
     Optional,
-    Sequence,
     Set,
     Tuple,
 )
 
-Cell = Tuple[int, int]
-DomainMap = Dict[Cell, Set[int]]
-Assignment = Dict[Cell, int]
+from kakuro_csp import (
+    Assignment,
+    Cell,
+    DomainMap,
+    KakuroBoard,
+    KakuroCSP,
+    KakuroError,
+    RunConstraint,
+    make_tiny_example_board,
+)
+
 EventCallback = Optional[Callable[["SolverEvent"], None]]
-
-DIGITS: FrozenSet[int] = frozenset(range(1, 10))
-
-
-# Ngoại lệ và mô hình dữ liệu
-
-class KakuroError(Exception):
-    """Ngoại lệ cơ sở cho mô hình Kakuro hoặc cấu hình bộ giải không hợp lệ."""
-
-
-class InvalidBoardError(KakuroError):
-    """Phát sinh khi dữ liệu các dãy Kakuro được cung cấp không hợp lệ."""
 
 
 @dataclass(frozen=True)
@@ -144,228 +100,6 @@ class SolverStats:
             "contradictions": self.contradictions,
             "solutions_found": self.solutions_found,
         }
-
-
-@dataclass(frozen=True)
-class RunConstraint:
-    """Một dãy Kakuro (chuỗi ô trắng theo chiều ngang hoặc chiều dọc).
-
-    Một dãy hợp lệ phải:
-      1. có từ 1 đến 9 ô;
-      2. dùng các chữ số khác nhau trong khoảng 1..9;
-      3. có tổng các chữ số bằng target.
-
-    Thứ tự các ô được dùng khi kiểm tra bộ giá trị hỗ trợ và hiển thị trên GUI.
-    """
-
-    run_id: str
-    cells: Tuple[Cell, ...]
-    target: int
-    direction: str = "unknown"
-    _valid_tuples: Tuple[Tuple[int, ...], ...] = field(
-        init=False, repr=False, compare=False
-    )
-
-    def __init__(
-        self,
-        run_id: str,
-        cells: Sequence[Cell],
-        target: int,
-        direction: str = "unknown",
-    ) -> None:
-        normalized_cells = tuple((int(r), int(c)) for r, c in cells)
-        object.__setattr__(self, "run_id", str(run_id))
-        object.__setattr__(self, "cells", normalized_cells)
-        object.__setattr__(self, "target", int(target))
-        object.__setattr__(self, "direction", str(direction).lower())
-
-        self._validate_shape()
-        valid = self._generate_valid_tuples()
-        if not valid:
-            raise InvalidBoardError(
-                f"Run {run_id!r} has no valid digit combination "
-                f"(length={len(normalized_cells)}, target={target})."
-            )
-        object.__setattr__(self, "_valid_tuples", valid)
-
-    def _validate_shape(self) -> None:
-        if not self.run_id:
-            raise InvalidBoardError("A run must have a non-empty run_id.")
-        if not 1 <= len(self.cells) <= 9:
-            raise InvalidBoardError(
-                f"Run {self.run_id!r} must contain 1..9 white cells."
-            )
-        if len(set(self.cells)) != len(self.cells):
-            raise InvalidBoardError(
-                f"Run {self.run_id!r} contains a duplicated cell."
-            )
-        for row, col in self.cells:
-            if row < 0 or col < 0:
-                raise InvalidBoardError(
-                    f"Cell coordinates must be non-negative: {(row, col)}."
-                )
-        if self.direction not in {"across", "down", "unknown"}:
-            raise InvalidBoardError(
-                "direction must be 'across', 'down', or 'unknown'."
-            )
-
-    def _generate_valid_tuples(self) -> Tuple[Tuple[int, ...], ...]:
-        """Liệt kê các bộ giá trị có thứ tự thỏa tổng và điều kiện khác nhau.
-
-        Dù dãy dài tối đa 9 ô, tổng cần đạt trong Kakuro giúp giới hạn đáng kể
-        số ứng viên. Các bộ giá trị được tạo một lần rồi dùng lại khi lan truyền
-        ràng buộc.
-        """
-        length = len(self.cells)
-        return tuple(
-            p for p in permutations(range(1, 10), length)
-            if sum(p) == self.target
-        )
-
-    @property
-    def valid_tuples(self) -> Tuple[Tuple[int, ...], ...]:
-        """Tất cả bộ giá trị có thứ tự thỏa mãn ràng buộc của dãy này."""
-        return self._valid_tuples
-
-    def is_satisfied(self, assignment: Mapping[Cell, int]) -> bool:
-        """Trả về True nếu mọi ô trong dãy đã được gán và đều hợp lệ."""
-        if any(cell not in assignment for cell in self.cells):
-            return False
-        values = tuple(assignment[cell] for cell in self.cells)
-        return (
-            all(value in DIGITS for value in values)
-            and len(set(values)) == len(values)
-            and sum(values) == self.target
-        )
-
-    def accepts_partial(self, assignment: Mapping[Cell, int]) -> bool:
-        """Kiểm tra phép gán một phần có giá trị hỗ trợ trong dãy này không."""
-        for candidate in self.valid_tuples:
-            if all(
-                cell not in assignment or assignment[cell] == candidate[index]
-                for index, cell in enumerate(self.cells)
-            ):
-                return True
-        return False
-
-
-class KakuroBoard:
-    """Mô tả một bảng Kakuro theo kiểu bất biến, tạo từ các ràng buộc dãy."""
-
-    def __init__(
-        self,
-        runs: Sequence[RunConstraint],
-        givens: Optional[Mapping[Cell, int]] = None,
-        name: str = "Kakuro puzzle",
-        require_crossing_runs: bool = True,
-    ) -> None:
-        if not runs:
-            raise InvalidBoardError("A Kakuro board must contain at least one run.")
-
-        self.name = name
-        self.runs: Tuple[RunConstraint, ...] = tuple(runs)
-        self.givens: Dict[Cell, int] = dict(givens or {})
-        self.cells: Tuple[Cell, ...] = tuple(
-            sorted({cell for run in self.runs for cell in run.cells})
-        )
-
-        self._validate_unique_run_ids()
-        self._validate_givens()
-        self._validate_cell_coverage(require_crossing_runs)
-
-        self.runs_by_cell: Dict[Cell, Tuple[RunConstraint, ...]] = {}
-        for cell in self.cells:
-            self.runs_by_cell[cell] = tuple(
-                run for run in self.runs if cell in run.cells
-            )
-
-    def _validate_unique_run_ids(self) -> None:
-        ids = [run.run_id for run in self.runs]
-        if len(ids) != len(set(ids)):
-            raise InvalidBoardError("Run IDs must be unique.")
-
-    def _validate_givens(self) -> None:
-        cell_set = set(self.cells)
-        for cell, value in self.givens.items():
-            if cell not in cell_set:
-                raise InvalidBoardError(
-                    f"Given cell {cell} does not occur in any run."
-                )
-            if value not in DIGITS:
-                raise InvalidBoardError(
-                    f"Given value for {cell} must be an integer from 1 to 9."
-                )
-
-    def _validate_cell_coverage(self, require_crossing_runs: bool) -> None:
-        for cell in self.cells:
-            directions = {run.direction for run in self.runs if cell in run.cells}
-            if require_crossing_runs and not (
-                "across" in directions and "down" in directions
-            ):
-                raise InvalidBoardError(
-                    f"Cell {cell} must belong to one across and one down run. "
-                    f"Found directions: {sorted(directions)}."
-                )
-
-    def describe(self) -> str:
-        """Tóm tắt cấu trúc CSP theo cách dễ đọc."""
-        return (
-            f"{self.name}: {len(self.cells)} variables, "
-            f"{len(self.runs)} run constraints."
-        )
-
-
-# Mô hình CSP và thao tác trên miền giá trị
-
-class KakuroCSP:
-    # Theo bài giảng, CSP gồm ba thành phần: biến, miền giá trị và ràng buộc.
-    # Mỗi ô trắng là một biến, miền ban đầu là {1,...,9}; mỗi dãy ngang/dọc
-    # là một ràng buộc về tổng và điều kiện không lặp chữ số.
-    """Mô hình CSP gồm biến, miền giá trị, ràng buộc và quan hệ láng giềng."""
-
-    def __init__(self, board: KakuroBoard) -> None:
-        self.board = board
-        self.variables: Tuple[Cell, ...] = board.cells
-        self.constraints: Tuple[RunConstraint, ...] = board.runs
-        self.neighbors: Dict[Cell, Set[Cell]] = {
-            cell: set() for cell in self.variables
-        }
-
-        for run in self.constraints:
-            for cell in run.cells:
-                self.neighbors[cell].update(
-                    other for other in run.cells if other != cell
-                )
-
-    def initial_domains(self) -> DomainMap:
-        """Tạo miền giá trị mới cho mỗi biến và áp dụng các số đã cho."""
-        domains: DomainMap = {
-            cell: set(DIGITS) for cell in self.variables
-        }
-        for cell, value in self.board.givens.items():
-            domains[cell] = {value}
-        return domains
-
-    def is_complete(self, assignment: Mapping[Cell, int]) -> bool:
-        return len(assignment) == len(self.variables)
-
-    def is_consistent(self, assignment: Mapping[Cell, int]) -> bool:
-        """Kiểm tra các ràng buộc dãy với phép gán đầy đủ hoặc một phần."""
-        return all(
-            run.accepts_partial(assignment)
-            for run in self.constraints
-        )
-
-    def validate_solution(self, assignment: Mapping[Cell, int]) -> bool:
-        """Kiểm tra chặt chẽ phép gán đầy đủ với mọi dãy."""
-        return (
-            self.is_complete(assignment)
-            and all(run.is_satisfied(assignment) for run in self.constraints)
-            and all(
-                assignment.get(cell) == value
-                for cell, value in self.board.givens.items()
-            )
-        )
 
 
 # Bộ giải
@@ -895,32 +629,6 @@ class KakuroSolver:
     def get_domains_snapshot(self, domains: Mapping[Cell, Set[int]]) -> Dict[Cell, Tuple[int, ...]]:
         """Trả ảnh chụp miền giá trị không thể sửa trực tiếp để GUI sử dụng."""
         return {cell: tuple(sorted(values)) for cell, values in domains.items()}
-
-
-# Bảng ví dụ và kiểm tra nhanh trên dòng lệnh
-
-def make_tiny_example_board() -> KakuroBoard:
-    """Tạo ví dụ minh họa gồm 2x2 ô trắng được dùng trong phần thảo luận.
-
-        Ngang:
-            A + B = 3
-            C + D = 7
-        Dọc:
-            A + C = 4
-            B + D = 6
-
-    Nghiệm duy nhất:
-        A=1, B=2, C=3, D=4
-    """
-    return KakuroBoard(
-        name="Tiny 2x2 Kakuro example",
-        runs=[
-            RunConstraint("A1", [(1, 1), (1, 2)], 3, "across"),
-            RunConstraint("A2", [(2, 1), (2, 2)], 7, "across"),
-            RunConstraint("D1", [(1, 1), (2, 1)], 4, "down"),
-            RunConstraint("D2", [(1, 2), (2, 2)], 6, "down"),
-        ],
-    )
 
 
 def format_solution(solution: Optional[Mapping[Cell, int]]) -> str:

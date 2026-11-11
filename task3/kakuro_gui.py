@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import ctypes
 import queue
+import sys
 import threading
 import time
 from typing import Dict, Iterable, List, Mapping, Optional, Set, Tuple
@@ -10,7 +12,8 @@ from typing import Dict, Iterable, List, Mapping, Optional, Set, Tuple
 import pygame
 
 from boards import make_assignment_board
-from kakuro_solver import Cell, KakuroBoard, KakuroSolver, SolverEvent
+from kakuro_csp import Cell, KakuroBoard
+from kakuro_solver import KakuroSolver, SolverEvent
 
 Color = Tuple[int, int, int]
 
@@ -44,6 +47,28 @@ COLORS: Dict[str, Color] = {
     "clue_down": (112, 190, 255),
     "domain_removed": (250, 116, 128),
 }
+
+
+_dpi_awareness_configured = False
+
+
+def configure_process_dpi_awareness() -> None:
+    """Prevent Windows from bitmap-scaling the UI and clipping its right side."""
+    global _dpi_awareness_configured
+    if sys.platform != "win32" or _dpi_awareness_configured:
+        return
+
+    user32 = ctypes.WinDLL("user32", use_last_error=True)
+    set_awareness = user32.SetProcessDpiAwarenessContext
+    set_awareness.argtypes = [ctypes.c_void_p]
+    set_awareness.restype = ctypes.c_bool
+
+    if not set_awareness(ctypes.c_void_p(-4)):
+        error = ctypes.get_last_error()
+        if error != 5:
+            raise ctypes.WinError(error)
+
+    _dpi_awareness_configured = True
 
 
 def _initial_window_size(
@@ -106,6 +131,7 @@ class KakuroGUI:
     """Interactive, event-by-event visualization of the existing CSP solver."""
 
     def __init__(self, board: Optional[KakuroBoard] = None) -> None:
+        configure_process_dpi_awareness()
         pygame.init()
         pygame.display.set_caption("Kakuro CSP | AI Learning Lab")
         window_size = _initial_window_size(

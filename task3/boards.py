@@ -7,11 +7,11 @@ Toa do (row, column) bat dau tu 0.
 Moi RunConstraint la mot day o trang theo chieu ngang (across)
 hoac doc (down). So ghi tren o goi y la tong cua day tuong ung.
 """
-from kakuro_solver import KakuroBoard, RunConstraint
+from kakuro_csp import KakuroBoard, RunConstraint
 
 
 def make_assignment_board() -> KakuroBoard:
-    """Bang 9x9 trong de bai (anh test case phuc tap)."""
+    "Clue lấy từ bảng 9x9 từ đề bài"
     runs = [
         # Ngang (Across): clue nam o ben trai day o trang.
         RunConstraint("A1", [(1, 2), (1, 3), (1, 4)], 22, "across"),

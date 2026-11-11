@@ -16,12 +16,22 @@
 Play Mode kiểm tra khả năng hỗ trợ của các bộ giá trị hợp lệ cho từng run;
 không gọi bộ giải CSP để điền bảng.
 
-## Mô hình hóa CSP
+## Mô hình hóa CSP — Task 1
 
 - **Variables:** mỗi ô trắng, biểu diễn bằng tọa độ `(row, column)`.
 - **Domains:** ban đầu mỗi ô có các giá trị `{1, 2, ..., 9}`.
 - **Constraints:** mỗi run ngang/dọc phải có tổng bằng clue và các chữ số
   trong run phải khác nhau. Mỗi run là ràng buộc nhiều biến (n-ary).
+- **Constraint graph:** mỗi ô trắng là một đỉnh; hai ô được nối nếu cùng nằm
+  trong một run. Đồ thị này được tạo trong `KakuroCSP` và dùng bởi heuristic
+  Degree của solver.
+- `KakuroCSP.is_consistent()` kiểm tra phép gán một phần còn có ít nhất một
+  cách hoàn tất hợp lệ cho mọi run hay không.
+
+Phần dữ liệu và kiểm tra mô hình nằm trong `kakuro_csp.py`; file giải thích
+các thành phần CSP và không chạy thuật toán tìm kiếm.
+
+## Solver Algorithms — Task 2
 
 Solver liệt kê các bộ giá trị hợp lệ của mỗi run rồi dùng chúng khi lan truyền:
 
@@ -82,7 +92,8 @@ quay lại menu.
 ```text
 task3/
 ├── main.py                 # Entry point, menu và điều hướng mode
-├── kakuro_solver.py        # Mô hình CSP, propagation và backtracking
+├── kakuro_csp.py           # Task 1: biến, miền, ràng buộc, constraint graph
+├── kakuro_solver.py        # Task 2: propagation, GAC, FC, backtracking, heuristics
 ├── boards.py               # Puzzle đề bài 9×9 và puzzle demo 2×2
 ├── eval_benchmark.py       # Benchmark backend trên puzzle 9×9
 ├── kakuro_gui.py           # Giao diện và trực quan hóa AI Solver

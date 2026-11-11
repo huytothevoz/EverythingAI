@@ -9,8 +9,13 @@ from typing import Dict, List, Optional, Set, Tuple
 import pygame
 
 from boards import make_assignment_board
-from kakuro_gui import COLORS, GRID_SIZE, build_grid_layout
-from kakuro_solver import Cell, KakuroBoard, RunConstraint
+from kakuro_gui import (
+    COLORS,
+    GRID_SIZE,
+    build_grid_layout,
+    configure_process_dpi_awareness,
+)
+from kakuro_csp import Cell, KakuroBoard, RunConstraint
 
 
 def _initial_window_size(
@@ -269,6 +274,7 @@ class KakuroPlayGUI:
     """Keyboard-and-mouse Play Mode, independent of the CSP solver."""
 
     def __init__(self, board: Optional[KakuroBoard] = None) -> None:
+        configure_process_dpi_awareness()
         pygame.init()
         pygame.display.set_caption("Kakuro | Play Mode")
         self.screen = pygame.display.set_mode(
