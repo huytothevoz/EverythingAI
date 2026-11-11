@@ -73,7 +73,7 @@ Tổng `N + N²(N-1) + N(N-1)(2N-1)/3`. Với N=4: `4+48+28=80`. Số biến là
 
 Một họ đường chéo có độ dài `1,2,...,N-1,N,N-1,...,1`; đường dài k tạo `choose(k,2)` clause. Cộng hai họ thu được công thức trên. Pairwise encoding dễ giải thích nhưng kích thước tăng O(N³).
 
-## 4. Giải thích từng lớp và hàm trong nqueens.py
+## 4. Giải thích từng lớp và hàm trong mã nguồn
 
 ### Result
 
@@ -105,7 +105,7 @@ Hàm khởi tạo lưu N từ bài toán. `variable` đổi tọa độ thành m
 4. Gom các ô có cùng `r+c`, từ 0 đến `2N-2`.
 5. `combinations(group,2)` liệt kê các cặp khác nhau, không phân biệt thứ tự. Với mỗi cặp a,b thêm `[-a,-b]`.
 
-Đường chéo dài 1 không tạo cặp nên không tạo clause. Python `range` không lấy cận phải. Code hiện tại duyệt toàn bàn cho từng đường chéo, vì vậy thời gian tạo nhóm cũng O(N³).
+Đường chéo dài 1 không tạo cặp nên không tạo clause. Python `range` không lấy cận phải. Code duyệt toàn bàn một lần để gom cả hai họ đường chéo trong O(N²). Liệt kê các cặp để sinh CNF vẫn cần O(N³).
 
 ### CNFEncoder.clause_count()
 
@@ -244,7 +244,7 @@ Thời gian SAT chỉ gồm solve; local search gồm khởi tạo và restart n
 
 **23. N=1,2,3 có gì đặc biệt?** N=1 có nghiệm; N=2,3 vô nghiệm. Benchmark theo đề dùng N≥4, nhưng test vẫn dùng các N nhỏ để kiểm tra biên.
 
-**24. Có thể cải tiến gì?** Gom đường chéo trong một lượt O(N²) thay vì quét lại toàn bàn; thử encoding cardinality tiết kiệm clause; thử heuristic pha ngẫu nhiên. Đây là ý tưởng mở rộng, chưa phải tính năng đang có.
+**24. Có thể cải tiến gì?** Thử encoding cardinality tiết kiệm clause hoặc thử heuristic pha ngẫu nhiên. Đây là ý tưởng mở rộng, chưa phải tính năng đang có.
 
 ## 9. Lịch ôn bốn ngày
 

@@ -1,0 +1,227 @@
+% Overleaf: select main.tex and the pdfLaTeX compiler.
+\documentclass[conference]{IEEEtran}
+\usepackage[T5]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{booktabs}
+
+\title{Giải bài toán $N$ quân hậu bằng SAT và Min-Conflicts}
+\begin{document}
+\maketitle
+\begin{abstract}
+Bài báo cáo trình bày mô hình logic mệnh đề cho bài toán
+$N$ quân hậu, quy trình sinh CNF và cách tìm nghiệm bằng
+Glucose3. Min-Conflicts được đánh giá với hai cách chọn
+biến trên năm kích thước bàn cờ. Ví dụ $N=4$ minh họa
+lời giải tay, cách mã hóa nghiệm và một bước sửa xung đột.
+\end{abstract}
+
+\section{Giải bài toán $N$ quân hậu}
+\label{sec:nqueens}
+\subsection{Phần 1. Mô hình logic mệnh đề và CNF}
+
+Xét bàn cờ $N\times N$, đánh số hàng và cột từ $0$ đến $N-1$.
+Biến Boolean $x_{r,c}$ nhận giá trị đúng khi ô $(r,c)$ có hậu.
+Có $N^2$ biến. Một literal là biến hoặc phủ định của biến.
+Một mệnh đề là tuyển các literal, còn CNF là hội các mệnh đề.
+
+\paragraph{Giải tay trên bàn $4\times4$.}
+Thử đặt hậu đầu tiên ở $(0,2)$. Ở hàng $1$, cột $2$ bị
+chiếm và cột $1,3$ nằm trên đường chéo, nên chỉ còn $(1,0)$.
+Ở hàng $2$, cột $0,2$ đã bị chiếm và cột $1$ nằm chéo với
+$(1,0)$, nên chỉ còn $(2,3)$. Hàng $3$ còn cột $1$ và ô
+$(3,1)$ không nằm chéo với ba hậu đã đặt. Dãy cột theo hàng
+là $(2,0,3,1)$. Bốn giá trị $r-c$ lần lượt là
+$(-2,1,-1,2)$ và bốn giá trị $r+c$ là $(2,1,5,4)$.
+Các giá trị trong mỗi dãy đều khác nhau, xác nhận đây là nghiệm.
+
+\paragraph{Tìm ràng buộc và chuyển sang CNF.}
+Trước hết, với mỗi hàng $r$, thêm mệnh đề
+$\bigvee_{c=0}^{N-1}x_{r,c}$ để buộc có ít nhất một hậu.
+Sau đó duyệt các ô và gom chúng theo hàng $r$, cột $c$,
+hiệu $r-c$ và tổng $r+c$. Hai ô cùng nhóm có thể tấn công
+nhau. Với mỗi cặp không thứ tự $a,b$ trong nhóm, điều kiện
+$\neg(x_a\land x_b)$ chuyển thành $\neg x_a\lor\neg x_b$
+theo De Morgan. Thêm mỗi mệnh đề đó vào CNF.
+
+Gọi $\mathcal P$ là tập các cặp ô khác nhau tìm được
+trong bước gom nhóm. Công thức đầy đủ có dạng
+\begin{align*}
+F_N &= \bigwedge_{r=0}^{N-1}
+      \left(\bigvee_{c=0}^{N-1}x_{r,c}\right)\\
+    &\quad {}\land
+      \bigwedge_{\{a,b\}\in\mathcal P}
+      (\neg x_a\lor\neg x_b).
+\end{align*}
+Mỗi mệnh đề dương có $N$ literal. Mỗi mệnh đề cấm đôi
+có hai literal. Hai ô khác nhau cùng lắm thuộc chung một
+trong bốn loại nhóm, nên cách duyệt này không đếm trùng cặp.
+
+Với mã số $v(r,c)=rN+c+1$, hàng đầu của bàn $4\times4$
+tạo mệnh đề \texttt{[1,2,3,4]}. Các cặp ô ví dụ cùng hàng,
+cùng cột và cùng đường chéo lần lượt tạo
+\texttt{[-1,-2]}, \texttt{[-1,-5]} và \texttt{[-1,-6]}.
+
+Mỗi hàng có ít nhất một và nhiều nhất một hậu nên có đúng
+$N$ hậu. Ràng buộc cấm đôi theo cột buộc $N$ hậu đó chiếm
+đủ $N$ cột. Ràng buộc theo hai họ đường chéo loại mọi cặp
+tấn công còn lại. Ngược lại, mỗi bàn cờ hợp lệ thỏa các mệnh
+đề đã sinh. Vì vậy mô hình tương đương bài toán ban đầu.
+
+\paragraph{Đếm mệnh đề bằng tay.}
+Có $N$ mệnh đề dương và $2N\binom N2$ mệnh đề cấm đôi theo
+hàng và cột. Trong mỗi họ đường chéo, một đường dài $N$ và
+hai đường cho mỗi độ dài $k=1,\ldots,N-1$ đóng góp
+$\binom N2+2\sum_{k=1}^{N-1}\binom k2$ mệnh đề.
+Tổng là
+\[
+C(N)=N+N^2(N-1)+\frac{N(N-1)(2N-1)}3.
+\]
+Với $N=4$, mỗi họ đường chéo đóng góp $6+2(0+1+3)=14$.
+Tổng cộng $4+24+24+28=80$ mệnh đề. Mã hóa cấm đôi
+tạo $O(N^3)$ mệnh đề.
+\subsection{Phần 2. Giải bằng Glucose3 và đo thời gian}
+
+\paragraph{Giải mã nghiệm bằng tay.}
+Nghiệm ở phần trước có các literal dương $3,5,12,14$.
+Ví dụ với literal $12$, chia $12-1=11$ cho $4$ được
+thương $2$, dư $3$, tức ô $(2,3)$. Làm tương tự với
+ba literal còn lại thu được $(0,2),(1,0),(3,1)$.
+Ví dụ này cho thấy cách đọc model. Glucose3 cũng có thể
+trả về nghiệm đối xứng hợp lệ.
+
+Trong lần chạy đầu với $N=4$, Glucose3 trả về
+\texttt{rows = [1, 3, 0, 2]}. Mỗi phần tử là hàng của
+hậu ở cột tương ứng. Kết quả khớp với lời giải tay.
+
+\paragraph{Quy trình thực nghiệm.}
+\texttt{CNFEncoder} sinh CNF. \texttt{SATSolver} nạp công
+thức vào \texttt{Glucose3} của PySAT, gọi \texttt{solve()}
+và đọc các literal dương bằng \texttt{get\_model()}.
+\texttt{NQueens.valid()} kiểm tra nghiệm bằng luật bàn cờ.
+Đếm số mệnh đề của CNF đầu vào và đo thời gian riêng lời gọi
+\texttt{solve()}. Mỗi $N$ dùng 20 lần chạy, mỗi lần tạo bộ
+giải mới. Thời gian sinh CNF, nạp mệnh đề và giải mã được
+loại khỏi phép đo này.
+Thời gian được lấy bằng \texttt{perf\_counter()}, đổi từ
+giây sang mili giây rồi tính trung bình. Các lần chạy lặp
+lại cùng công thức nhằm đo dao động thời gian.
+
+\begin{table}[!t]
+\centering
+\caption{Kết quả Glucose3 theo kích thước bàn cờ}
+\label{tab:nqueens-sat}
+\begin{tabular}{rrrr}
+\toprule
+$N$ & Biến & Mệnh đề & Trung bình (ms)\\
+\midrule
+% BEGIN SAT ROWS
+4 & 16 & 80 & 0.0104 \\
+8 & 64 & 736 & 0.0606 \\
+16 & 256 & 6336 & 1.2684 \\
+32 & 1024 & 52608 & 19.0458 \\
+64 & 4096 & 428800 & 239.2126 \\
+% END SAT ROWS
+\bottomrule
+\end{tabular}
+\end{table}
+
+Các kích thước $4,8,16,32,64$ đều cho nghiệm hợp lệ trong
+20 lần chạy. Bảng~\ref{tab:nqueens-sat} cho thấy số mệnh đề
+tăng cùng kích thước bàn. Thời gian được đo trên Windows.
+Đề nêu môi trường đánh giá macOS Intel Core i5, vì vậy các
+giá trị thời gian cần được đo lại nếu so sánh trên máy chấm.
+\subsection{Phần 3. Min-Conflicts và heuristic chọn biến}
+
+Mỗi biến $q_c$ chứa hàng của hậu ở cột $c$ và có miền
+$\{0,\ldots,N-1\}$. Khởi tạo các giá trị ngẫu nhiên. Với
+mỗi quân, điểm xung đột là số quân khác cùng hàng hoặc
+cùng đường chéo với nó. Bản chuẩn chọn đều một cột có điểm
+dương. Heuristic \textit{max-conflict} chọn cột có điểm lớn
+nhất rồi phá hòa ngẫu nhiên. Cả hai gỡ quân đã chọn và thử
+tất cả các hàng trong cột đó, sau đó lấy ngẫu nhiên một
+hàng có số xung đột nhỏ nhất.
+
+\paragraph{Chạy tay một bước cho đến nghiệm.}
+Lấy trạng thái $q=(1,3,3,2)$ theo thứ tự cột $0,1,2,3$.
+Hậu cột $2$ cùng hàng với hậu cột $1$, cùng đường chéo với
+hậu cột $0$ và cột $3$. Ba cặp này là toàn bộ các cặp tấn
+công, nên vector điểm là $(1,1,3,1)$. Bản chuẩn có thể
+chọn bất kỳ cột nào. Heuristic chọn cột $2$.
+
+Gỡ hậu ở $(3,2)$ rồi thử lần lượt các hàng $0,1,2,3$
+trong cột $2$. Chi phí là $(0,2,2,3)$.
+Hàng $1$ xung đột với hậu cột $0$ theo hàng và cột $3$
+theo chéo. Hàng $2$ xung đột với hậu cột $3$ theo hàng và
+cột $1$ theo chéo. Hàng $0$ có chi phí $0$, nên đặt hậu ở
+$(0,2)$ và thu được $q=(1,3,0,2)$, đúng nghiệm giải tay
+ở phần 1 khi đọc theo cột.
+
+Nếu bản chuẩn chọn cột $0$ ở cùng trạng thái, chi phí theo
+hàng là $(0,1,2,2)$. Sau khi chọn hàng $0$, trạng thái
+$(0,3,3,2)$ vẫn còn hai cặp tấn công. Đây là một đường đi
+có thể xảy ra khi chọn biến ngẫu nhiên.
+
+\paragraph{Cài đặt và điều kiện dừng.}
+Ba mảng đếm hậu theo hàng và hai họ đường chéo cho phép
+gỡ hoặc đặt hậu trong $O(1)$. Khi chấm điểm một hậu đang
+nằm trên bàn, trừ $3$ vì bản thân nó xuất hiện trong cả
+ba mảng. Khi thử hàng mới sau khi gỡ hậu thì cộng trực
+tiếp ba bộ đếm. Mỗi bước quét $N$ quân và $N$ hàng, tốn
+$O(N)$ thời gian và $O(N)$ bộ nhớ. Khi hết bước, khởi tạo
+lại nếu còn lượt. Hết ngân sách chỉ xác nhận rằng lần
+tìm kiếm đó chưa tìm thấy nghiệm.
+
+\paragraph{So sánh thực nghiệm.}
+Với mỗi kích thước, hai phiên bản dùng chung 20 seed
+(2026--2045), trạng thái ban đầu tương ứng, ngân sách
+10\,000 bước mỗi lần khởi tạo và tối đa 4 lần khởi động
+lại. Cả hai tìm được nghiệm trong 20/20 lần ở mỗi $N$.
+Thời gian tính cả khởi tạo và khởi động lại. Số bước tính
+cả các bước giữ nguyên hàng khi phá hòa.
+
+\begin{table}[!t]
+\centering
+\caption{So sánh hai cách chọn biến trong Min-Conflicts}
+\label{tab:nqueens-local}
+\begin{tabular}{rrrrr}
+\toprule
+& \multicolumn{2}{c}{Trung bình (ms)} &
+  \multicolumn{2}{c}{Bước trung bình}\\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}
+$N$ & Chuẩn & Heuristic & Chuẩn & Heuristic\\
+\midrule
+% BEGIN LOCAL ROWS
+4 & 0.0769 & 0.0801 & 12.25 & 9.90 \\
+8 & 5.9856 & 6.9015 & 1064.15 & 1038.10 \\
+16 & 0.4628 & 4.1408 & 62.50 & 559.25 \\
+32 & 1.4440 & 1.1996 & 103.90 & 89.15 \\
+64 & 3.1704 & 2.5632 & 122.15 & 95.35 \\
+% END LOCAL ROWS
+\bottomrule
+\end{tabular}
+\end{table}
+
+Bảng~\ref{tab:nqueens-local} cho thấy ở $N=64$ heuristic
+giảm số bước trung bình từ $122.15$ còn $95.35$, khoảng
+$21.94\%$. Theo từng cặp cùng seed ở kích thước này,
+heuristic dùng ít bước hơn trong 17/20 lần và nhiều hơn
+trong 3/20 lần.
+
+Ở $N=16$, số bước trung bình tăng từ $62.50$ lên $559.25$,
+trong khi trung vị giảm từ $56$ còn $54.5$. Một lần chạy
+heuristic dùng $10\,086$ bước do phải khởi động lại, kéo
+trung bình lên. Ở $N=8$, trung vị cũng giảm từ $49.5$ còn
+$26$ bước, nhưng thời gian trung bình tăng từ $5.9856$ lên
+$6.9015$ ms. Vì vậy đánh giá heuristic cần xét cả trung
+vị, trung bình và các lần phải khởi động lại.
+
+\section{Kết luận}
+Mô hình CNF biểu diễn đầy đủ ràng buộc của bài toán và
+cho phép Glucose3 tìm nghiệm hợp lệ trên cả năm kích
+thước đã thử. Hai biến thể Min-Conflicts đều tìm được
+nghiệm ở mọi lượt thử. Heuristic chọn hậu có nhiều xung
+đột nhất giảm số bước trung bình ở một số kích thước,
+nhưng có thể cần thêm lần khởi động lại. Kết quả thời
+gian phụ thuộc vào môi trường và phạm vi đo.
+\end{document}

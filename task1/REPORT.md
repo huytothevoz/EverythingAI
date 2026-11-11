@@ -23,7 +23,7 @@ Số mệnh đề chính xác:
 
 `     = N + N²(N-1) + N(N-1)(2N-1)/3`.
 
-Trong biểu thức đầu, C(a,2) là tổ hợp chập hai, không phải hàm đếm mệnh đề. Dùng pairwise encoding có kích thước O(N³). Cài đặt nhóm đường chéo hiện tại cũng duyệt O(N³); đây là lựa chọn dễ kiểm chứng, chưa tối ưu cho N rất lớn.
+Trong biểu thức đầu, C(a,2) là tổ hợp chập hai, không phải hàm đếm mệnh đề. Dùng pairwise encoding có kích thước O(N³). Cài đặt hiện tại gom cả hai họ đường chéo trong một lượt O(N²). Thời gian sinh mệnh đề vẫn là O(N³) vì phải liệt kê tất cả cặp.
 
 ## 2. Glucose3
 
