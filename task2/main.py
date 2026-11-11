@@ -49,8 +49,8 @@ def run_benchmark():
 def main_menu():
     while True:
         print_header()
-        print(" 1. Chơi Game (Giao diện đồ họa)")
-        print(" 2. Chạy Benchmark Thuật toán (Terminal)")
+        print(" 1. Chơi Game")
+        print(" 2. Chạy Benchmark Thuật toán")
         print(" 0. Thoát chương trình")
         print("=" * 50)
         

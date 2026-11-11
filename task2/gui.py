@@ -21,6 +21,7 @@ SCREEN_HEIGHT = BOARD_HEIGHT
 DAMAGE_FLASH_FRAMES = 10
 MAX_FLASH_ALPHA = 220
 
+#ĐƯỜNG DẪN CÁC FILE MÔ HÌNH
 ASSETS = {
     "tank_max": "assets/tank_max.png",
     "tank_min": "assets/tank_min.png",
@@ -30,19 +31,23 @@ ASSETS = {
     "explosion": "assets/explosion.png"
 }
 
-# === ĐƯỜNG DẪN ÂM THANH (bạn tự thêm file vào assets/sounds/) ===
+#ĐƯỜNG DẪN CÁC FILE ÂM THANH 
 SOUND_FILES = {
-    "tank_move":  "assets/sounds/tank_move.wav",   # xe tăng di chuyển
-    "tank_fire":  "assets/sounds/tank_fire.wav",   # xe tăng bắn
-    "bullet_hit": "assets/sounds/bullet_hit.wav",  # đạn trúng đích (chưa phá hủy)
-    "destroyed":  "assets/sounds/destroyed.wav",   # thực thể bị phá hủy
-    "game_over":  "assets/sounds/game_over.wav",   # kết thúc trận đấu
+    "tank_move":    "assets/sounds/tank_move.wav",     # xe tăng di chuyển
+    "tank_fire":    "assets/sounds/tank_fire.wav",     # xe tăng bắn
+    "bullet_hit":   "assets/sounds/bullet_hit.wav",    # đạn trúng đích (chưa phá hủy)
+    "destroyed":    "assets/sounds/destroyed.wav",     # thực thể bị phá hủy
+    "game_over":    "assets/sounds/game_over.wav",     # kết thúc trận đấu
+    "button_click": "assets/sounds/button_click.wav",  # click nút (bạn tự thêm file)
 }
 BGM_FILES = {
     "menu":   "assets/sounds/menu_bgm.mp3",   # nhạc nền menu
     "battle": "assets/sounds/battle_bgm.mp3", # nhạc nền trong trận
 }
-BGM_VOLUME = 0.4
+
+# Âm lượng: menu giảm 50% so với trận đấu
+BGM_MENU_VOLUME   = 0.2   # = 50% của 0.4
+BGM_BATTLE_VOLUME = 0.4
 SFX_VOLUME = 0.7
 
 COLOR_GRASS = (143, 172, 82)
@@ -61,10 +66,10 @@ COLOR_BTN_ACTIVE = (60, 160, 80)
 
 # Góc xoay (Ảnh gốc chĩa sang TRÁI)
 DIRECTION_ANGLE = {
-    Direction.LEFT: 0,
-    Direction.DOWN: 90,
-    Direction.RIGHT: 180,
-    Direction.UP: 270
+    Direction.LEFT: 90,
+    Direction.DOWN: 180,
+    Direction.RIGHT: 270,
+    Direction.UP: 0
 }
 
 class Button:
@@ -80,7 +85,7 @@ class Button:
         color = COLOR_BTN_HOVER if self.is_hovered else (COLOR_BTN_ACTIVE if self.is_active else COLOR_BTN)
         pygame.draw.rect(surface, color, self.rect, border_radius=5)
         pygame.draw.rect(surface, (20, 20, 20), self.rect, 2, border_radius=5)
-        
+
         text_surf = self.font.render(self.text, True, COLOR_UI_TEXT)
         text_rect = text_surf.get_rect(center=self.rect.center)
         surface.blit(text_surf, text_rect)
@@ -89,11 +94,13 @@ class Button:
         self.is_hovered = self.rect.collidepoint(pos)
 
     def handle_event(self, event):
+        """Trả về True nếu nút được click (để phía gọi tự phát SFX)."""
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             if self.is_hovered and self.callback:
                 self.callback()
                 return True
         return False
+
 
 class TankWarsGUI:
     def __init__(self):
@@ -106,28 +113,28 @@ class TankWarsGUI:
         self.font_large = pygame.font.SysFont("consolas", 40, bold=True)
 
         self.images = self.load_assets()
-        self.init_audio()  # <<< NEW
+        self.init_audio()
 
         self.state = "MENU"
         self.paused = False
-        self.auto_play = True
-        self.ai_delay = 0.3  
+        # self.auto_play đã được bỏ — AI luôn tự chạy khi không bị pause.
+        self.ai_delay = 0.3
         self.last_ai_time = 0
 
-        self.mode = "AI_VS_AI" 
+        self.mode = "AI_VS_AI"
         self.ai1_type = AgentType.ALPHABETA_HEURISTIC
         self.ai2_type = AgentType.MINIMAX_HEURISTIC
-        
+
         self.agent_max = None
         self.agent_min = None
-        
-        self.last_ai_stats = {"nodes": 0, "pruned": 0, "time": 0.0}
+
         self.last_actions = {Player.MAX: "None", Player.MIN: "None"}
+        self.move_count = 0
 
         # Lưu hiệu ứng nổ
         self.explosions = []
 
-        # <<< NEW: Hiệu ứng nháy trắng khi bị thương
+        # Hiệu ứng nháy trắng khi bị thương
         self.damage_flashes = []
         self.game_over_played = False
 
@@ -144,9 +151,7 @@ class TankWarsGUI:
         # Nhạc nền menu
         self.play_bgm("menu")
 
-    # ============================================================
     # ÂM THANH
-    # ============================================================
     def init_audio(self):
         self.audio_available = False
         self.sounds = {}
@@ -202,7 +207,9 @@ class TankWarsGUI:
         if path and os.path.exists(path):
             try:
                 pygame.mixer.music.load(path)
-                pygame.mixer.music.set_volume(BGM_VOLUME)
+                # Menu nhỏ hơn battle 50%
+                volume = BGM_MENU_VOLUME if key == "menu" else BGM_BATTLE_VOLUME
+                pygame.mixer.music.set_volume(volume)
                 pygame.mixer.music.play(-1)
                 self.current_bgm = key
             except Exception as e:
@@ -220,13 +227,13 @@ class TankWarsGUI:
     # ASSETS
     def load_assets(self):
         imgs = {}
-        current_dir = os.path.dirname(os.path.abspath(__file__)) 
-        
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+
         for key, default_path in ASSETS.items():
             base_name = default_path.rsplit('.', 1)[0]
             base_path = os.path.join(current_dir, base_name)
             possible_paths = [f"{base_path}.png", f"{base_path}.jpg", f"{base_path}.jpeg"]
-            
+
             found = False
             for path in possible_paths:
                 if os.path.exists(path):
@@ -237,7 +244,8 @@ class TankWarsGUI:
                             img = img.subsurface(rect).copy()
 
                         if "tank" in key:
-                            target_w = int(CELL_SIZE * 1.6) 
+                            # Giảm kích thước tank (trước đây 1.6)
+                            target_w = int(CELL_SIZE * 1.2)
                         elif "bullet" in key:
                             target_w = int(CELL_SIZE * 0.5)
                         elif "explosion" in key:
@@ -252,7 +260,7 @@ class TankWarsGUI:
                         break
                     except Exception as e:
                         print(f"Lỗi khi tải {path}: {e}")
-            
+
             if not found:
                 imgs[key] = None
         return imgs
@@ -269,11 +277,11 @@ class TankWarsGUI:
 
     def setup_game_buttons(self):
         sx = BOARD_WIDTH + 20
+        # Đã bỏ "Toggle Auto Play" — Pause/Resume đảm nhiệm vai trò dừng/tiếp tục AI.
         self.game_buttons = [
             Button(sx, 330, 260, 40, "Pause / Resume", self.font_med, self.toggle_pause),
             Button(sx, 390, 260, 40, "Step (AI only)", self.font_med, self.step_ai),
-            Button(sx, 450, 260, 40, "Toggle Auto Play", self.font_med, self.toggle_auto),
-            Button(sx, 540, 260, 40, "Back to Menu", self.font_med, self.back_to_menu),
+            Button(sx, 470, 260, 40, "Back to Menu", self.font_med, self.back_to_menu),
         ]
 
     def toggle_mode(self):
@@ -297,22 +305,21 @@ class TankWarsGUI:
     def start_game(self):
         self.state = "PLAYING"
         self.paused = False
-        self.auto_play = True
         self.last_ai_time = time.time()
-        
+
         self.gs = create_sample_game_state()
-        
-        self.last_ai_stats = {"nodes": 0, "pruned": 0, "time": 0.0}
+
         self.last_actions = {Player.MAX: "None", Player.MIN: "None"}
-        self.explosions = [] 
-        self.damage_flashes = []     # <<< NEW
-        self.game_over_played = False  # <<< NEW
-        
+        self.move_count = 0
+        self.explosions = []
+        self.damage_flashes = []
+        self.game_over_played = False
+
         if self.mode == "AI_VS_AI":
             self.agent_max = load_agent(self.ai1_type, depth=3)
         else:
             self.agent_max = None
-            
+
         self.agent_min = load_agent(self.ai2_type, depth=3)
         self.setup_game_buttons()
 
@@ -322,18 +329,14 @@ class TankWarsGUI:
     def back_to_menu(self):
         self.state = "MENU"
         self.damage_flashes = []
-        # Nhạc nền menu
         self.play_bgm("menu")
 
     def toggle_pause(self):
         self.paused = not self.paused
 
-    def toggle_auto(self):
-        self.auto_play = not self.auto_play
-
     def step_ai(self):
         if not self.paused:
-            self.paused = True 
+            self.paused = True
         self._do_ai_turn()
 
     # HIỆU ỨNG
@@ -341,13 +344,12 @@ class TankWarsGUI:
         r, c = pos
         cx, cy = c * CELL_SIZE + CELL_SIZE//2, r * CELL_SIZE + CELL_SIZE//2
         self.explosions.append({
-            "x": cx, "y": cy, 
-            "scale": 0.5, 
+            "x": cx, "y": cy,
+            "scale": 0.5,
             "alpha": 255
         })
 
     def _add_damage_flash(self, pos, entity_type):
-        """Thêm/refresh hiệu ứng nháy trắng khi thực thể nhận sát thương."""
         for f in self.damage_flashes:
             if f["pos"] == pos and f["type"] == entity_type:
                 f["timer"] = DAMAGE_FLASH_FRAMES
@@ -359,8 +361,6 @@ class TankWarsGUI:
         })
 
     def _check_destruction_and_damage(self, old_state, new_state):
-        """Phát hiện thực thể bị phá hủy hoặc nhận sát thương để phát âm thanh + hiệu ứng."""
-        # --- 1. Phá hủy ---
         for pos in old_state.walls:
             if pos not in new_state.walls:
                 self._create_explosion(pos)
@@ -374,7 +374,6 @@ class TankWarsGUI:
                 self._create_explosion(base.position)
                 self.play_sound("destroyed")
 
-        # --- 2. Sát thương (chưa bị phá hủy) ---
         for pos, wall in old_state.walls.items():
             if pos in new_state.walls and new_state.walls[pos].hp < wall.hp:
                 self._add_damage_flash(pos, "wall")
@@ -393,7 +392,6 @@ class TankWarsGUI:
                     self.play_sound("bullet_hit")
 
     def _apply_action(self, action):
-        """Áp dụng action + phát âm thanh + phát hiện thay đổi + kiểm tra kết thúc."""
         if self.gs.is_terminal():
             return
 
@@ -401,7 +399,6 @@ class TankWarsGUI:
         old_gs = self.gs
         new_gs = self.gs.apply_action(action)
 
-        # Âm thanh theo hành động
         if action == Action.FIRE:
             self.play_sound("tank_fire")
         elif action in (Action.MOVE_UP, Action.MOVE_DOWN, Action.MOVE_LEFT, Action.MOVE_RIGHT):
@@ -413,8 +410,8 @@ class TankWarsGUI:
         self.gs = new_gs
         self._check_destruction_and_damage(old_gs, new_gs)
         self.last_actions[current_player] = action.name.replace("_", " ")
+        self.move_count += 1
 
-        # Kết thúc trận
         if new_gs.is_terminal() and not self.game_over_played:
             self.play_sound("game_over")
             self.stop_bgm()
@@ -423,27 +420,20 @@ class TankWarsGUI:
     def _do_ai_turn(self):
         if self.gs.is_terminal():
             return
-            
+
         current_player = self.gs.current_player
         agent = self.agent_max if current_player == Player.MAX else self.agent_min
-        
+
         if agent:
             action = agent.choose_action(self.gs)
             if action:
-                self._apply_action(action)  # <<< đã gộp xử lý
-            
-            self.last_ai_stats = {
-                "nodes": agent.nodes_expanded,
-                "pruned": agent.pruned_count,
-                "time": agent.execution_time * 1000
-            }
+                self._apply_action(action)
+
+            # Vẫn giữ số liệu nội bộ nhưng không hiển thị (người dùng không cần).
             self.last_ai_time = time.time()
 
-    # ============================================================
     # VẼ
-    # ============================================================
     def _draw_damage_flash(self, surface, pos, entity_type, rect):
-        """Vẽ lớp phủ trắng nếu thực thể đang trong trạng thái bị thương."""
         for f in self.damage_flashes:
             if f["pos"] == pos and f["type"] == entity_type:
                 alpha = int(MAX_FLASH_ALPHA * (f["timer"] / DAMAGE_FLASH_FRAMES))
@@ -477,20 +467,20 @@ class TankWarsGUI:
 
     def draw_game(self):
         self.screen.fill(COLOR_UI_BG)
-        
+
         board_surf = pygame.Surface((BOARD_WIDTH, BOARD_HEIGHT))
         board_surf.fill(COLOR_GRASS)
         for patch in self.dirt_patches:
             pygame.draw.rect(board_surf, COLOR_DIRT, patch, border_radius=10)
-            
-        # 1. Vẽ Walls + thanh máu + flash sát thương
+
+        # 1. Walls
         for wall in self.gs.walls.values():
             r, c = wall.position
             rect = pygame.Rect(c * CELL_SIZE, r * CELL_SIZE, CELL_SIZE, CELL_SIZE)
             pygame.draw.rect(board_surf, COLOR_WALL, rect)
             pygame.draw.rect(board_surf, COLOR_WALL_DARK, rect, 2)
             pygame.draw.line(board_surf, COLOR_WALL_DARK, (rect.left, rect.centery), (rect.right, rect.centery), 2)
-            
+
             if wall.hp < HP_WALL:
                 ratio = max(0, wall.hp / HP_WALL)
                 bar_w = CELL_SIZE - 6
@@ -500,14 +490,14 @@ class TankWarsGUI:
                 pygame.draw.rect(board_surf, (150, 0, 0), (bar_x, bar_y, bar_w, bar_h))
                 pygame.draw.rect(board_surf, (0, 255, 0), (bar_x, bar_y, bar_w * ratio, bar_h))
 
-            self._draw_damage_flash(board_surf, wall.position, "wall", rect)  # <<< NEW
+            self._draw_damage_flash(board_surf, wall.position, "wall", rect)
 
-        # 2. Vẽ Bases + flash sát thương
+        # 2. Bases
         for player, base in self.gs.bases.items():
             r, c = base.position
             rect = pygame.Rect(c * CELL_SIZE, r * CELL_SIZE, CELL_SIZE, CELL_SIZE)
             img_key = "base_max" if player == Player.MAX else "base_min"
-            
+
             if self.images[img_key]:
                 img_rect = self.images[img_key].get_rect(center=rect.center)
                 board_surf.blit(self.images[img_key], img_rect)
@@ -515,18 +505,18 @@ class TankWarsGUI:
                 color = COLOR_TANK_MAX if player == Player.MAX else COLOR_TANK_MIN
                 pygame.draw.rect(board_surf, color, rect)
                 pygame.draw.rect(board_surf, (255, 255, 255), rect, 2)
-            
+
             hp_surf = self.font_med.render(str(base.hp), True, (255, 50, 50))
             board_surf.blit(hp_surf, (rect.centerx - 8, rect.centery - 10))
 
-            self._draw_damage_flash(board_surf, base.position, "base", rect)  # <<< NEW
+            self._draw_damage_flash(board_surf, base.position, "base", rect)
 
-        # 3. Vẽ Tanks + flash sát thương
+        # 3. Tanks
         for player, tank in self.gs.tanks.items():
             r, c = tank.position
             rect = pygame.Rect(c * CELL_SIZE, r * CELL_SIZE, CELL_SIZE, CELL_SIZE)
             img_key = "tank_max" if player == Player.MAX else "tank_min"
-            
+
             if self.images[img_key]:
                 angle = DIRECTION_ANGLE.get(tank.direction, 0)
                 rotated_img = pygame.transform.rotate(self.images[img_key], angle)
@@ -542,13 +532,13 @@ class TankWarsGUI:
                 end_y = cy + dy * (CELL_SIZE // 2 + 4)
                 pygame.draw.line(board_surf, (20, 20, 20), (cx, cy), (end_x, end_y), 4)
 
-            self._draw_damage_flash(board_surf, tank.position, "tank", rect)  # <<< NEW
+            self._draw_damage_flash(board_surf, tank.position, "tank", rect)
 
-        # 4. Vẽ Bullets
+        # 4. Bullets
         for bullet in self.gs.bullets:
             r, c = bullet.position
             rect = pygame.Rect(c * CELL_SIZE, r * CELL_SIZE, CELL_SIZE, CELL_SIZE)
-            
+
             if self.images["bullet"]:
                 angle = DIRECTION_ANGLE.get(bullet.direction, 0)
                 rotated_bullet = pygame.transform.rotate(self.images["bullet"], angle)
@@ -559,7 +549,7 @@ class TankWarsGUI:
                 pygame.draw.circle(board_surf, COLOR_BULLET, (cx, cy), 5)
                 pygame.draw.circle(board_surf, (200, 100, 0), (cx, cy), 5, 1)
 
-        # 5. Vẽ Hiệu ứng nổ
+        # 5. Explosions
         for exp in self.explosions:
             if exp["alpha"] > 0:
                 if self.images["explosion"]:
@@ -572,7 +562,7 @@ class TankWarsGUI:
                     board_surf.blit(scaled_exp, exp_rect)
                 else:
                     exp_surf = pygame.Surface((exp["scale"]*40, exp["scale"]*40), pygame.SRCALPHA)
-                    pygame.draw.circle(exp_surf, (255, 100, 0, int(exp["alpha"])), 
+                    pygame.draw.circle(exp_surf, (255, 100, 0, int(exp["alpha"])),
                                        (exp["scale"]*20, exp["scale"]*20), exp["scale"]*20)
                     board_surf.blit(exp_surf, (exp["x"] - exp["scale"]*20, exp["y"] - exp["scale"]*20))
 
@@ -580,7 +570,7 @@ class TankWarsGUI:
 
         # --- SIDEBAR UI ---
         pygame.draw.rect(self.screen, COLOR_UI_PANEL, (BOARD_WIDTH, 0, SIDEBAR_WIDTH, SCREEN_HEIGHT))
-        pygame.draw.line(self.screen, (0,0,0), (BOARD_WIDTH, 0), (BOARD_WIDTH, SCREEN_HEIGHT), 2)
+        pygame.draw.line(self.screen, (0, 0, 0), (BOARD_WIDTH, 0), (BOARD_WIDTH, SCREEN_HEIGHT), 2)
 
         turn_color = (100, 255, 100) if self.gs.current_player == Player.MAX else (255, 100, 100)
         turn_text = f"TURN: {'MAX' if self.gs.current_player == Player.MAX else 'MIN'}"
@@ -597,10 +587,10 @@ class TankWarsGUI:
             surf = self.font_med.render(text, True, COLOR_UI_TEXT)
             self.screen.blit(surf, (BOARD_WIDTH + 20, 80 + i * 25))
 
-        pygame.draw.line(self.screen, (100,100,100), (BOARD_WIDTH+20, 140), (SCREEN_WIDTH-20, 140), 1)
+        pygame.draw.line(self.screen, (100, 100, 100), (BOARD_WIDTH+20, 140), (SCREEN_WIDTH-20, 140), 1)
         act_max = self.last_actions[Player.MAX]
         act_min = self.last_actions[Player.MIN]
-        
+
         act_text = [
             f"MAX Last: {act_max}",
             f"MIN Last: {act_min}"
@@ -610,27 +600,16 @@ class TankWarsGUI:
             surf = self.font_med.render(text, True, color)
             self.screen.blit(surf, (BOARD_WIDTH + 20, 155 + i * 25))
 
-        pygame.draw.line(self.screen, (100,100,100), (BOARD_WIDTH+20, 210), (SCREEN_WIDTH-20, 210), 1)
-        stats_text = [
-            "--- AI LAST MOVE STATS ---",
-            f"Nodes Expanded: {self.last_ai_stats['nodes']}",
-            f"Pruned Branches: {self.last_ai_stats['pruned']}",
-            f"Think Time: {self.last_ai_stats['time']:.2f} ms",
-            "",
-            f"Auto Play: {'ON' if self.auto_play else 'OFF'}",
-            f"Paused: {'YES' if self.paused else 'NO'}"
-        ]
-        for i, text in enumerate(stats_text):
-            color = (150, 200, 255) if "---" in text else COLOR_UI_TEXT
-            surf = self.font_small.render(text, True, color)
-            self.screen.blit(surf, (BOARD_WIDTH + 20, 220 + i * 20))
+        pygame.draw.line(self.screen, (100, 100, 100), (BOARD_WIDTH+20, 210), (SCREEN_WIDTH-20, 210), 1)
+
+        # Phần stats gọn: chỉ hiển thị số bước đã đi
+        step_surf = self.font_med.render(f"Step Count: {self.move_count}", True, (150, 200, 255))
+        self.screen.blit(step_surf, (BOARD_WIDTH + 20, 230))
 
         mouse_pos = pygame.mouse.get_pos()
         for btn in self.game_buttons:
             if btn.text == "Pause / Resume":
                 btn.is_active = self.paused
-            elif btn.text == "Toggle Auto Play":
-                btn.is_active = self.auto_play
             btn.check_hover(mouse_pos)
             btn.draw(self.screen)
 
@@ -638,28 +617,27 @@ class TankWarsGUI:
             overlay = pygame.Surface((BOARD_WIDTH, BOARD_HEIGHT), pygame.SRCALPHA)
             overlay.fill((0, 0, 0, 180))
             self.screen.blit(overlay, (0, 0))
-            
+
             utility = self.gs.get_utility(0)
-            if utility > 0: winner = "MAX WINS!"
-            elif utility < 0: winner = "MIN WINS!"
-            else: winner = "DRAW!"
-            
+            if utility > 0:
+                winner = "MAX WINS!"
+            elif utility < 0:
+                winner = "MIN WINS!"
+            else:
+                winner = "DRAW!"
+
             win_surf = self.font_large.render(winner, True, COLOR_BULLET)
             win_rect = win_surf.get_rect(center=(BOARD_WIDTH//2, BOARD_HEIGHT//2))
             self.screen.blit(win_surf, win_rect)
 
-    # ============================================================
     # UPDATE
-    # ============================================================
     def update(self):
-        # Cập nhật hiệu ứng nổ (to dần và mờ dần)
         for exp in self.explosions[:]:
             exp["scale"] += 0.05
             exp["alpha"] -= 15
             if exp["alpha"] <= 0:
                 self.explosions.remove(exp)
 
-        # <<< NEW: Đếm ngược hiệu ứng nháy trắng
         for f in self.damage_flashes[:]:
             f["timer"] -= 1
             if f["timer"] <= 0:
@@ -669,18 +647,16 @@ class TankWarsGUI:
             return
 
         current_player = self.gs.current_player
-        
-        if self.mode == "USER_VS_AI" and current_player == Player.MAX:
-            pass 
-        else:
-            if self.auto_play:
-                now = time.time()
-                if now - self.last_ai_time > self.ai_delay:
-                    self._do_ai_turn()
 
-    # ============================================================
+        if self.mode == "USER_VS_AI" and current_player == Player.MAX:
+            return
+
+        # AI luôn tự chạy khi không pause
+        now = time.time()
+        if now - self.last_ai_time > self.ai_delay:
+            self._do_ai_turn()
+
     # RUN LOOP
-    # ============================================================
     def run(self):
         while True:
             for event in pygame.event.get():
@@ -690,23 +666,30 @@ class TankWarsGUI:
 
                 if self.state == "MENU":
                     for btn in self.menu_buttons:
-                        btn.handle_event(event)
-                        
+                        if btn.handle_event(event):
+                            self.play_sound("button_click")
+
                 elif self.state == "PLAYING":
                     for btn in self.game_buttons:
-                        btn.handle_event(event)
-                        
+                        if btn.handle_event(event):
+                            self.play_sound("button_click")
+
                     if event.type == pygame.KEYDOWN:
                         if self.mode == "USER_VS_AI" and self.gs.current_player == Player.MAX and not self.gs.is_terminal():
                             action = None
-                            if event.key == pygame.K_w: action = Action.MOVE_UP
-                            elif event.key == pygame.K_s: action = Action.MOVE_DOWN
-                            elif event.key == pygame.K_a: action = Action.MOVE_LEFT
-                            elif event.key == pygame.K_d: action = Action.MOVE_RIGHT
-                            elif event.key == pygame.K_SPACE: action = Action.FIRE
-                            
+                            if event.key == pygame.K_w:
+                                action = Action.MOVE_UP
+                            elif event.key == pygame.K_s:
+                                action = Action.MOVE_DOWN
+                            elif event.key == pygame.K_a:
+                                action = Action.MOVE_LEFT
+                            elif event.key == pygame.K_d:
+                                action = Action.MOVE_RIGHT
+                            elif event.key == pygame.K_SPACE:
+                                action = Action.FIRE
+
                             if action:
-                                self._apply_action(action)  # <<< đã gộp xử lý
+                                self._apply_action(action)
 
             self.update()
 
@@ -717,6 +700,7 @@ class TankWarsGUI:
 
             pygame.display.flip()
             self.clock.tick(60)
+
 
 if __name__ == "__main__":
     game = TankWarsGUI()
