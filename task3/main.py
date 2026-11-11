@@ -7,7 +7,7 @@ from typing import Dict, Optional, Tuple
 import pygame
 
 from kakuro_game import KakuroPlayGUI
-from kakuro_gui import COLORS, KakuroGUI
+from kakuro_gui import COLORS, KakuroGUI, configure_process_dpi_awareness
 
 
 def _initial_window_size(
@@ -32,6 +32,7 @@ class MainMenu:
     """Resizable application menu with game, solver, help, and project pages."""
 
     def __init__(self) -> None:
+        configure_process_dpi_awareness()
         pygame.init()
         pygame.display.set_caption("KAKURO — CSP PUZZLE SOLVER")
         self.screen = pygame.display.set_mode(
