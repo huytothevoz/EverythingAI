@@ -35,17 +35,4 @@ class CNFEncoder:
         n = self.n
         return n + n*n*(n-1) + n*(n-1)*(2*n-1)//3
 
-    def write_dimacs(self, path):
-        clauses = self.encode()
-        with path.open('w', encoding='ascii') as stream:
-            stream.write(f'p cnf {self.n**2} {len(clauses)}\n')
-            for clause in clauses:
-                stream.write(' '.join(map(str, clause)) + ' 0\n')
-        return len(clauses)
-
-
-if __name__ == '__main__':
-    from sys import argv
-    from main import main
-
-    main(['cnf', *argv[1:]])
+    

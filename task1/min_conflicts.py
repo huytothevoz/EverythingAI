@@ -63,13 +63,3 @@ class MinConflictsSolver:
                 steps += 1
         return Result(None, perf_counter()-start, steps, self.restarts+1)
 
-
-if __name__ == '__main__':
-    from sys import argv
-    from main import main
-
-    arguments = argv[1:]
-    if arguments and arguments[0] == 'benchmark':
-        main(['benchmark', *arguments[1:], '--algorithms', 'standard', 'max_conflict'])
-    else:
-        main(['solve', '--algorithm', 'standard', *arguments])

@@ -29,13 +29,3 @@ class SATSolver:
                 raise RuntimeError('Invalid SAT solution')
         return Result(rows, seconds)
 
-
-if __name__ == '__main__':
-    from sys import argv
-    from main import main
-
-    arguments = argv[1:]
-    if arguments and arguments[0] == 'benchmark':
-        main(['benchmark', *arguments[1:], '--algorithms', 'glucose3'])
-    else:
-        main(['solve', *arguments, '--algorithm', 'glucose3'])

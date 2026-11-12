@@ -36,39 +36,3 @@ class NQueens:
             lines.append(f'{r:>{label_width}} |' + '|'.join(cell.center(width) for cell in cells) + '|')
             lines.append(border)
         return '\n'.join(lines)
-
-    def write_html(self, rows, path):
-        cells = []
-        for r in range(self.n):
-            for c, queen_row in enumerate(rows):
-                square = 'dark' if (r + c) % 2 else 'light'
-                queen = '&#9819;' if queen_row == r else ''
-                cells.append(f'<td class="{square}">{queen}</td>')
-        table_rows = '\n'.join(
-            '<tr>' + ''.join(cells[i:i+self.n]) + '</tr>'
-            for i in range(0, len(cells), self.n)
-        )
-        path.write_text(f"""<!doctype html>
-<html lang="vi">
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Bàn cờ {self.n} quân hậu</title>
-<style>
-body {{ margin: 0; background: #f3eee4; color: #202b24; font: 16px system-ui; }}
-main {{ width: min(90vw, 560px); margin: 5vh auto; }}
-h1 {{ font-size: clamp(22px, 5vw, 36px); }}
-.frame {{ overflow: auto; border: 6px solid #293d32; border-radius: 8px; }}
-table {{ width: 100%; min-width: {self.n * 22}px; border-collapse: collapse; table-layout: fixed; }}
-td {{ padding: 0; height: clamp(22px, {90/self.n:.3f}vw, {560/self.n:.3f}px);
-      text-align: center; font: clamp(16px, {60/self.n:.3f}vw, {420/self.n:.3f}px)/1 "Segoe UI Symbol", serif; }}
-.light {{ background: #f2dcad; color: #202b24; }}
-.dark {{ background: #587360; color: #fff9e8; }}
-</style>
-<main>
-<h1>Bàn cờ {self.n} quân hậu</h1>
-<div class="frame"><table aria-label="Nghiệm {self.n} quân hậu">
-{table_rows}
-</table></div>
-</main>
-</html>
-""", encoding='utf-8')
