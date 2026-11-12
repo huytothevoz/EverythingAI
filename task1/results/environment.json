@@ -2,6 +2,7 @@
   "platform": "Windows-11-10.0.26300-SP0",
   "processor": "Intel64 Family 6 Model 151 Stepping 5, GenuineIntel",
   "python": "3.12.6 (tags/v3.12.6:a4a2d2b, Sep  6 2024, 20:11:23) [MSC v.1940 64 bit (AMD64)]",
+  "python_sat": "1.9.dev17",
   "parameters": {
     "command": "benchmark",
     "sizes": [
@@ -12,7 +13,12 @@
       64
     ],
     "trials": 20,
-    "output": "D:\\study\\nhapmonai\\Cuoiki\\source\\task1\\results",
+    "algorithms": [
+      "glucose3",
+      "standard",
+      "max_conflict"
+    ],
+    "output": "source/task1/results",
     "seed": 2026,
     "steps": 10000,
     "restarts": 4

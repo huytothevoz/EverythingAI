@@ -73,7 +73,7 @@ Tổng `N + N²(N-1) + N(N-1)(2N-1)/3`. Với N=4: `4+48+28=80`. Số biến là
 
 Một họ đường chéo có độ dài `1,2,...,N-1,N,N-1,...,1`; đường dài k tạo `choose(k,2)` clause. Cộng hai họ thu được công thức trên. Pairwise encoding dễ giải thích nhưng kích thước tăng O(N³).
 
-## 4. Giải thích từng lớp và hàm trong nqueens.py
+## 4. Giải thích từng lớp và hàm trong mã nguồn
 
 ### Result
 
@@ -105,7 +105,7 @@ Hàm khởi tạo lưu N từ bài toán. `variable` đổi tọa độ thành m
 4. Gom các ô có cùng `r+c`, từ 0 đến `2N-2`.
 5. `combinations(group,2)` liệt kê các cặp khác nhau, không phân biệt thứ tự. Với mỗi cặp a,b thêm `[-a,-b]`.
 
-Đường chéo dài 1 không tạo cặp nên không tạo clause. Python `range` không lấy cận phải. Code hiện tại duyệt toàn bàn cho từng đường chéo, vì vậy thời gian tạo nhóm cũng O(N³).
+Đường chéo dài 1 không tạo cặp nên không tạo clause. Python `range` không lấy cận phải. Code duyệt toàn bàn một lần để gom cả hai họ đường chéo trong O(N²). Liệt kê các cặp để sinh CNF vẫn cần O(N³).
 
 ### CNFEncoder.clause_count()
 
@@ -123,9 +123,9 @@ Với literal dương l, `divmod(l-1,N)` trả thương và dư tương ứng h�
 
 Lưu cờ chọn heuristic, số bước tối đa mỗi lần khởi tạo và số restart tối đa. `restarts=4` nghĩa là có tối đa **5 lần khởi tạo**, gồm lần đầu và 4 lần làm lại.
 
-### MinConflictsSolver.solve(problem, seed)
+### MinConflictsSolver.solve(problem, seed, initial_rows)
 
-`Random(seed)` tạo bộ sinh ngẫu nhiên riêng. Cùng seed và cùng thuật toán cho cùng chuỗi quyết định và nghiệm; thời gian chạy vẫn dao động.
+`Random(seed)` sinh bàn khởi tạo. Một bộ sinh khác xử lý chọn biến và phá hòa. Tham số initial_rows cho phép tái hiện trạng thái giải tay.
 
 Mỗi lần khởi tạo, sinh N hàng ngẫu nhiên, một hàng cho mỗi cột. Ba mảng lưu số hậu:
 
@@ -184,17 +184,17 @@ Chọn ngẫu nhiên hàng 1,2 hoặc 3. Nếu chọn 1, trạng thái thành `[
 
 `raw.csv` lưu từng lần chạy; `summary.csv` tổng hợp; `environment.json` lưu môi trường và tham số. `mean` là trung bình; `median` là trung vị, ít nhạy với một số lần quá chậm; `stdev` là độ lệch chuẩn mẫu, mô tả mức dao động. Thời gian được lưu theo giây; nhân 1000 thành mili giây.
 
-Hai biến thể local search dùng cùng seed và trạng thái đầu tiên, cùng ngân sách và cùng cách chọn hàng. Sau khi chọn biến khác nhau, chuỗi tiêu thụ số ngẫu nhiên có thể khác; không nên nói mọi trạng thái khởi tạo lại đều giống nhau.
+Hai biến thể local search dùng cùng seed, ngân sách và cách chọn hàng. Hai bộ sinh tách riêng giúp cả hai dùng chung chuỗi bàn khởi tạo kể cả sau restart.
 
 Trong test, N=4 có 16 biến Boolean nên có `2^16=65.536` phép gán. Duyệt tất cả để kiểm tra “CNF đúng khi và chỉ khi bàn cờ hợp lệ”. Các test còn kiểm tra trường hợp vô nghiệm, nghiệm SAT, nghiệm local search và khả năng tái lập theo seed. Test hữu hạn không chứng minh code đúng với mọi N; chứng minh mô hình và kiểm thử bổ trợ nhau.
 
 ## 7. Cách đọc kết quả của chính bài làm
 
-Với N=64, standard trung bình 122,15 bước, heuristic 95,35 bước, giảm khoảng 21,94%. Với N=16, standard 62,50 bước nhưng heuristic 559,25 bước. Vì vậy không được kết luận heuristic luôn tốt hơn.
+Với N=64, standard trung bình 127,25 bước, heuristic 112,00 bước, giảm khoảng 12,0%. Với N=16, trung vị giảm từ 84 còn 61 bước, nhưng hai lượt heuristic restart làm trung bình tăng từ 95,60 lên 1.084,65 bước.
 
 Tất cả cấu hình đã đo có tỷ lệ thành công 20/20, nhưng điều đó không chứng minh xác suất thành công tuyệt đối là 100%. Ở N=8 và N=16 có các lần local search dài làm trung bình tăng mạnh; phải đọc cả trung vị và độ lệch chuẩn.
 
-Thời gian SAT chỉ gồm solve; local search gồm khởi tạo và restart nên hai thời gian khác phạm vi. Bảng hiện tại đo trên Windows, chưa xác minh trên macOS Intel i5. Một tiến trình thử N=100 chạy đồng thời trong lúc thu bảng có thể gây nhiễu thời gian; muốn kết luận hiệu năng cần đo lại khi máy rảnh. Không có kết quả hoàn chỉnh cho N=100.
+Thời gian SAT chỉ gồm solve; local search gồm khởi tạo và restart nên hai thời gian khác phạm vi. Bảng hiện tại đo trên Windows, chưa xác minh trên macOS Intel i5.
 
 ## 8. Câu hỏi vấn đáp kèm gợi ý trả lời
 
@@ -244,7 +244,7 @@ Thời gian SAT chỉ gồm solve; local search gồm khởi tạo và restart n
 
 **23. N=1,2,3 có gì đặc biệt?** N=1 có nghiệm; N=2,3 vô nghiệm. Benchmark theo đề dùng N≥4, nhưng test vẫn dùng các N nhỏ để kiểm tra biên.
 
-**24. Có thể cải tiến gì?** Gom đường chéo trong một lượt O(N²) thay vì quét lại toàn bàn; thử encoding cardinality tiết kiệm clause; thử heuristic pha ngẫu nhiên. Đây là ý tưởng mở rộng, chưa phải tính năng đang có.
+**24. Có thể cải tiến gì?** Thử encoding cardinality tiết kiệm clause hoặc thử heuristic pha ngẫu nhiên. Đây là ý tưởng mở rộng, chưa phải tính năng đang có.
 
 ## 9. Lịch ôn bốn ngày
 

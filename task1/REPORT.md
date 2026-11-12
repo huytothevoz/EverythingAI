@@ -1,70 +1,69 @@
-# Task 1 - N quân hậu
+# I. Bài toán N quân hậu bằng logic mệnh đề và tìm kiếm cục bộ
 
-## 1. Mô hình logic mệnh đề
+## A. Phát biểu bài toán
 
-Cho bàn cờ N × N. Biến Boolean x(r,c) đúng khi ô hàng r, cột c có hậu. Có N² biến; ánh xạ sang số nguyên dương dùng cho PySAT là v(r,c)=rN+c+1. Literal âm biểu diễn phủ định.
+Bài toán yêu cầu đặt đúng N quân hậu trên bàn N×N sao cho mọi cặp hậu nằm khác hàng, khác cột và khác đường chéo. Chỉ số hàng r và cột c bắt đầu từ 0. Hai ô khác nhau cùng đường chéo nếu chúng có cùng hiệu r−c hoặc cùng tổng r+c.
 
-Ràng buộc:
+Xét N=4. Đặt hậu đầu tiên tại (0,2). Trên hàng 1, cột 2 đã có hậu và cột 1, 3 bị chiếu chéo, nên chọn (1,0). Trên hàng 2, cột 0, 2 đã có hậu và ô (2,1) bị hậu (1,0) chiếu chéo, nên chọn (2,3). Hàng cuối còn cột 1. Ô (3,1) khác đường chéo với ba hậu trước. Các giá trị r−c là (−2, 1, −1, 2) và r+c là (2, 1, 5, 4). Mỗi dãy có bốn giá trị phân biệt, xác nhận nghiệm dưới đây.
 
-1. Mỗi hàng có ít nhất một hậu: OR theo c của x(r,c).
-2. Mỗi hàng có nhiều nhất một hậu: với mỗi cặp c<d, thêm NOT x(r,c) OR NOT x(r,d).
-3. Mỗi cột có nhiều nhất một hậu: với mỗi cặp r<s, thêm NOT x(r,c) OR NOT x(s,c).
-4. Mỗi đường chéo có nhiều nhất một hậu: nhóm các ô theo r-c và theo r+c; với mỗi cặp ô trong nhóm, thêm mệnh đề phủ định đôi tương tự.
+| Hàng / cột | 0 | 1 | 2 | 3 |
+|---:|:---:|:---:|:---:|:---:|
+| 0 | · | · | Q | · |
+| 1 | Q | · | · | · |
+| 2 | · | · | · | Q |
+| 3 | · | Q | · | · |
 
-Lấy AND của toàn bộ mệnh đề. Các ràng buộc đã ở dạng CNF: một hội của các tuyển. Quy tắc không cùng đúng xuất phát từ NOT(a AND b), dùng De Morgan thành NOT a OR NOT b. Không cần biến phụ hay chuyển đổi Tseitin.
+*Hình 1. Vị trí bốn quân hậu trong nghiệm giải tay.*
 
-N hàng, mỗi hàng đúng một hậu cho đúng N hậu. N hậu nằm trên N cột, mỗi cột nhiều nhất một hậu, nên mỗi cột cũng đúng một hậu. Do đó không cần thêm tuyển dương cho cột. Mọi nghiệm CNF là một bàn cờ hợp lệ và mọi bàn cờ hợp lệ thỏa CNF.
+## B. Cài đặt và tối ưu hóa
 
-Thuật toán phát hiện ràng buộc duyệt hàng, cột và hai họ đường chéo, rồi liệt kê các cặp không thứ tự trong mỗi nhóm. Các đường chéo cùng họ có độ dài 1,2,...,N-1,N,N-1,...,1.
+**Mô hình logic mệnh đề.** Chương trình dùng hai nhóm mệnh đề. Nhóm thứ nhất yêu cầu mỗi hàng có hậu. Nhóm thứ hai cấm mỗi cặp ô có thể tấn công nhau cùng chứa hậu.
 
-Số mệnh đề chính xác:
+Biến Boolean x(r,c) đúng khi ô (r,c) chứa hậu. Chương trình nhóm các ô theo hàng r, cột c và hai họ đường chéo r−c, r+c. Mỗi hàng có một mệnh đề tuyển tất cả biến trong hàng để buộc đặt ít nhất một hậu. Với mỗi cặp ô a,b trong cùng nhóm, điều kiện ¬(xₐ ∧ xᵦ) được chuyển theo De Morgan thành ¬xₐ ∨ ¬xᵦ. Hội của các mệnh đề tạo thành CNF. Ràng buộc hàng buộc có đúng N hậu. Ràng buộc cột và đường chéo loại mọi cặp tấn công còn lại. Theo chiều ngược lại, mọi bàn cờ hợp lệ thỏa toàn bộ mệnh đề.
 
-`C(N) = N + 2N*C(N,2) + 2*[C(N,2) + 2*sum(C(k,2), k=1..N-1)]`
+PySAT đánh số biến bằng v(r,c)=rN+c+1. Với N=4, hàng đầu sinh [1,2,3,4]. Ví dụ cặp cùng hàng, cùng cột và cùng chéo lần lượt sinh [−1,−2], [−1,−5] và [−1,−6]. Mỗi hàng hoặc cột có C(4,2)=6 cặp. Một họ đường chéo có các độ dài 1,2,3,4,3,2,1 nên sinh 0+1+3+6+3+1+0=14 mệnh đề. Tổng cộng có 4+24+24+14+14=80 mệnh đề.
 
-`     = N + N²(N-1) + N(N-1)(2N-1)/3`.
+Với N bất kỳ, hai nhóm hàng và cột đóng góp 2N·C(N,2) mệnh đề cấm đôi. Mỗi họ đường chéo có một đường dài N và hai đường cho mỗi độ dài từ 1 đến N−1. Do đó, mỗi họ có C(N,2)+2·C(N,3) mệnh đề cấm đôi. Cộng thêm N mệnh đề yêu cầu mỗi hàng có hậu, ta được C(N)=N+N²(N−1)+N(N−1)(2N−1)/3. Gom nhóm tốn O(N²) thời gian. Liệt kê và lưu các mệnh đề cấm đôi tốn O(N³).
 
-Trong biểu thức đầu, C(a,2) là tổ hợp chập hai, không phải hàm đếm mệnh đề. Dùng pairwise encoding có kích thước O(N³). Cài đặt nhóm đường chéo hiện tại cũng duyệt O(N³); đây là lựa chọn dễ kiểm chứng, chưa tối ưu cho N rất lớn.
+**Giải bằng Glucose3.** Lớp NQueens biểu diễn bàn cờ và kiểm tra nghiệm. CNFEncoder sinh mệnh đề và xuất DIMACS. SATSolver nạp CNF vào Glucose3 của PySAT, gọi solve() và lấy model khi công thức khả thỏa. Với literal dương ℓ, thương và dư của phép chia ℓ−1 cho N xác định hàng và cột. Chẳng hạn 12−1=2×4+3 xác định ô (2,3). Nghiệm giải tay ứng với các literal dương 3,5,12,14 và khớp kết quả Glucose3 ở lượt đầu với N=4.
 
-## 2. Glucose3
+**Min-Conflicts.** MinConflictsSolver biểu diễn biến q[c] là hàng của hậu ở cột c. Gọi g(c,t) là số hậu ở các cột khác tấn công ô hàng t, cột c. Tổng số cặp xung đột bằng một nửa tổng g(c,q[c]) trên tất cả các cột, vì mỗi cặp được đếm hai lần. Nghiệm đạt được khi tổng này bằng 0.
 
-CNF được truyền qua `Glucose3(bootstrap_with=clauses)`. Gọi `solve()` và dùng `get_model()` để lấy literal dương, chuyển về tọa độ. Đo thời gian bằng đồng hồ đơn điệu `perf_counter`. Đếm mệnh đề từ CNF gốc, không dùng số mệnh đề nội bộ sau tiền xử lý. Mọi nghiệm đều được kiểm tra bằng quy tắc quân hậu độc lập với bộ mã hóa.
+Theo Lecture 08, bản chuẩn chọn đều một cột có g(c,q[c])>0. Bản đề xuất chọn cột có g(c,q[c]) lớn nhất và phá hòa ngẫu nhiên. Sau khi chọn cột, cả hai gỡ hậu và chọn ngẫu nhiên một hàng t làm nhỏ nhất g(c,t). Vì hàng cũ cũng là một ứng viên, số cặp xung đột không tăng trong một bước sửa, nhưng có thể giữ nguyên. Chương trình dùng ba mảng đếm theo hàng và đường chéo để tính chi phí một ô trong O(1). Khi hậu vẫn còn trên bàn, phải trừ 3 để loại hậu đó khỏi cả ba bộ đếm. Mỗi bước quét N hậu và N hàng ứng viên, tốn O(N) thời gian và O(N) bộ nhớ. Khi hết ngân sách mà chưa tìm được nghiệm, chương trình trả về trạng thái tìm kiếm thất bại.
 
-Tham khảo API chính thức: https://pysathq.github.io/docs/html/api/solvers.html
+**Mô phỏng bằng tay.** Từ q=(1,3,3,2), điểm xung đột theo cột là (1,1,3,1). Hậu cột 2 cùng hàng với hậu cột 1, cùng đường chéo với hậu cột 0 và 3. Heuristic chọn cột 2. Sau khi gỡ hậu đó, chi phí theo hàng là (0,2,2,3). Chuyển đến hàng 0 cho nghiệm q=(1,3,0,2) sau một bước.
 
-## 3. Min-Conflicts và heuristic chọn biến
+Bản chuẩn có thể chọn cột 0 trước, với chi phí (0,1,2,2), để tới (0,3,3,2). Tiếp theo, chọn cột 2, tính chi phí (1,1,3,2) và phá hòa bằng hàng 0 để tới (0,3,0,2). Cuối cùng, chọn cột 0, tính chi phí (1,0,3,1) và chuyển đến hàng 1 để đạt nghiệm. Nếu chọn cột 2 ngay đầu, bản chuẩn cũng có thể kết thúc sau một bước.
 
-Dùng một biến q[c] cho mỗi cột với miền 0..N-1. Cách biểu diễn luôn bảo đảm mỗi cột một hậu. Khởi tạo mỗi biến bằng một hàng ngẫu nhiên. Đếm số hậu trên từng hàng và hai đường chéo bằng ba mảng bộ đếm.
+## C. Thí nghiệm và kết quả
 
-Ở mỗi bước, tính số hậu tấn công từng quân. Standard chọn đều ngẫu nhiên trong các quân đang xung đột. Heuristic **max-conflict** chọn quân có số xung đột lớn nhất; nếu nhiều quân bằng nhau, chọn ngẫu nhiên. Trực giác là ưu tiên quân liên quan đến nhiều vi phạm. Đây không phải bảo đảm cải thiện vì lựa chọn tham lam có thể lặp trên vùng bằng phẳng.
+Thực nghiệm chạy trên Windows 11, Python 3.12.6 và python-sat 1.9.dev17. Mỗi cấu hình chạy 20 lượt ở N=4, 8, 16, 32, 64. Mỗi lượt SAT tạo mới Glucose3 và chỉ đo thời gian solve() sau khi nạp CNF. Hai biến thể Min-Conflicts dùng các seed 2026–2045 và cùng chuỗi bàn khởi tạo, kể cả sau restart. Mỗi lần khởi tạo có tối đa 10.000 bước và mỗi lượt có tối đa 4 lần khởi động lại. Thời gian Min-Conflicts bao gồm khởi tạo và restart. Cả ba cấu hình tìm được nghiệm hợp lệ ở 20/20 lượt cho mỗi kích thước.
 
-Sau khi chọn cột, tạm gỡ quân khỏi bộ đếm. Tính chi phí của từng hàng bằng tổng ba bộ đếm rồi chọn ngẫu nhiên một hàng có chi phí nhỏ nhất. Cho phép chọn lại hàng cũ nếu cùng tối ưu. Đặt quân lại và cập nhật bộ đếm O(1). Đánh giá N quân và N hàng làm mỗi bước O(N), bộ nhớ O(N). Tổng số cặp tấn công bằng một nửa tổng số xung đột trên các quân.
+**Bảng I. Số mệnh đề và thời gian Glucose3**
 
-Nếu đạt giới hạn bước thì khởi tạo lại ngẫu nhiên. Không tìm thấy sau ngân sách không suy ra vô nghiệm. Cả hai biến thể có cùng giới hạn và cách restart. Có thể dừng thành công ngay ở trạng thái cuối cùng sau bước sửa cuối, tránh bỏ sót nghiệm tại biên ngân sách.
+| N | Số biến | Số mệnh đề | Thời gian trung bình (ms) |
+|---:|---:|---:|---:|
+| 4 | 16 | 80 | 0,0062 |
+| 8 | 64 | 736 | 0,0344 |
+| 16 | 256 | 6.336 | 1,0878 |
+| 32 | 1.024 | 52.608 | 12,9204 |
+| 64 | 4.096 | 428.800 | 152,6832 |
 
-## 4. Kiểm chứng và thực nghiệm
+**Bảng II. Kết quả trung bình của Min-Conflicts chuẩn và max-conflict**
 
-Các kiểm thử bao gồm SAT cho N=1,2,3,4,8,16; kiểm tra công thức số mệnh đề; duyệt toàn bộ phép gán Boolean N=4 so CNF với luật bàn cờ; kiểm tra nghiệm local search và tính tái lập của seed cho N=4,8,32; kiểm tra ngân sách trên N=3.
+| N | Chuẩn (ms) | Max (ms) | Chuẩn (bước) | Max (bước) |
+|---:|---:|---:|---:|---:|
+| 4 | 0,0416 | 0,0447 | 7,40 | 7,55 |
+| 8 | 3,5220 | 5,8855 | 1.103,15 | 1.575,45 |
+| 16 | 0,5442 | 6,1647 | 95,60 | 1.084,65 |
+| 32 | 0,9424 | 0,8170 | 97,15 | 77,40 |
+| 64 | 2,2594 | 2,0700 | 127,25 | 112,00 |
 
-Thực nghiệm tăng N qua 4,8,16,32,64. Mỗi cấu hình 20 lần; seed 2026..2045. SAT dùng bộ giải mới mỗi lần. Bảng đo được sinh từ `results/summary.csv`, chi tiết từng lần nằm ở `results/raw.csv`. Thời gian trung bình gồm cả lần thất bại đối với local search; tỷ lệ thành công phải đọc kèm thời gian, không chỉ so những lần thành công. Số bước tính cả bước không đổi vị trí và tất cả restart.
+**Kiểm chứng.** Số mệnh đề trong Bảng I khớp công thức C(N). Với N=4, nhóm duyệt toàn bộ 65.536 phép gán Boolean và đối chiếu giá trị CNF với luật bàn cờ. Kiểm thử Min-Conflicts tái hiện đúng bước chuyển của heuristic với ngân sách một bước. Các nghiệm từ cả 300 lượt thực nghiệm đều được kiểm tra theo hàng, cột và đường chéo.
 
-Môi trường thực đo được lưu trong `results/environment.json`; không phải cấu hình macOS Intel i5 nêu trong đề. Cần chạy lại trên máy chấm khi muốn so sánh trực tiếp. Các lần chạy SAT là đo lặp hiệu năng, không đại diện cho 20 bài toán ngẫu nhiên độc lập. Không có chứng minh thống kê về ưu thế tổng quát của heuristic.
+**Phân tích.** Bảng II cho thấy heuristic giảm khoảng 20,3% số bước trung bình ở N=32 và 12,0% ở N=64. So theo từng cặp cùng seed, heuristic dùng ít bước hơn ở 13/20 và 11/20 lượt tương ứng. Ở N=16, trung vị giảm từ 84 xuống 61 bước, nhưng hai lượt heuristic phải khởi động lại, làm trung bình tăng từ 95,60 lên 1.084,65 bước. Chênh lệch giữa trung vị và trung bình cho thấy các lượt chậm có ảnh hưởng lớn tới kết quả. Thời gian SAT và Min-Conflicts đo các giai đoạn khác nhau, nên hai bảng lần lượt dùng để quan sát Glucose3 khi tăng N và so sánh hai quy tắc chọn biến. Số đo hiện tại áp dụng cho cấu hình Windows đã thử.
 
-## 5. Kết quả thực đo
+**Tài liệu tham khảo cho mục này**
 
-Thời gian dưới đây tính bằng mili giây, là trung bình của 20 lần chạy. Tất cả cấu hình trong bảng đạt 20/20 nghiệm hợp lệ.
-
-| N | Số mệnh đề | Glucose3 (ms) | Standard (ms) | Max-conflict (ms) | Bước standard | Bước heuristic |
-|---|---:|---:|---:|---:|---:|---:|
-| 4 | 80 | 0.0055 | 0.0457 | 0.0417 | 12.25 | 9.90 |
-| 8 | 736 | 0.0415 | 3.5216 | 4.3966 | 1064.15 | 1038.10 |
-| 16 | 6336 | 1.1534 | 0.3610 | 3.3604 | 62.50 | 559.25 |
-| 32 | 52608 | 13.9351 | 1.1433 | 1.0277 | 103.90 | 89.15 |
-| 64 | 428800 | 163.0372 | 2.3392 | 1.9028 | 122.15 | 95.35 |
-
-Ở N=64, heuristic giảm số bước trung bình từ 122,15 xuống 95,35 (khoảng 21,94%). Tuy nhiên ở N=16, heuristic tăng số bước từ 62,50 lên 559,25: một số lần chạy dài có thể chi phối trung bình. Vì thế heuristic chỉ có lợi trên một số kích thước của bộ thử, không vượt standard một cách nhất quán. Cần xem cả trung vị và độ lệch chuẩn trong CSV.
-
-N=100 đã được thử nhưng dừng trước khi hoàn thành toàn bộ thí nghiệm vì thời gian chạy SAT dài; không đưa số liệu chưa hoàn chỉnh vào bảng. Mã hỗ trợ chạy thêm với `--sizes 100`. Trong lúc thu bảng này có một tiến trình thử N=100 chạy đồng thời, có thể gây nhiễu phép đo thời gian; số bước và tính hợp lệ của nghiệm không bị ảnh hưởng. Muốn lấy số liệu hiệu năng sạch để nộp, chạy lại benchmark khi máy rảnh.
-
-## 6. Mức độ hoàn thành
-
-Đã cài đặt mô hình CNF, Glucose3, Min-Conflicts chuẩn, heuristic chọn biến, kiểm tra độc lập và thí nghiệm tăng N. Chưa xác minh trên macOS Intel i5 và chưa đối chiếu trực tiếp slide Lecture 08 do chưa được cung cấp. Báo cáo này là phần Task 1, có thể đưa nội dung vào báo cáo IEEE chung của nhóm.
+- N. T. An, “Constraint Satisfaction,” Lecture 08, Introduction to Artificial Intelligence, Trường Đại học Tôn Đức Thắng, 2026, slide 29–31.
+- N. T. An, “Logical Agents,” Lecture 09, Introduction to Artificial Intelligence, Trường Đại học Tôn Đức Thắng, 2026, slide 27.

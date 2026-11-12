@@ -40,6 +40,15 @@ class Tests(unittest.TestCase):
         with self.assertRaises(ValueError):
             NQueens(0)
 
+    def test_hand_worked_max_conflict_move(self):
+        initial_rows = [1, 3, 3, 2]
+        result = MinConflictsSolver(True, max_steps=1, restarts=0).solve(
+            NQueens(4), initial_rows=initial_rows
+        )
+        self.assertEqual(result.solution, [1, 3, 0, 2])
+        self.assertEqual(result.steps, 1)
+        self.assertEqual(initial_rows, [1, 3, 3, 2])
+
 
 if __name__ == '__main__':
     unittest.main()

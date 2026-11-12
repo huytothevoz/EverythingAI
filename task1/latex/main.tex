@@ -1,0 +1,221 @@
+\documentclass[conference]{IEEEtran}
+\usepackage{iftex}
+\ifPDFTeX
+  \usepackage[T5]{fontenc}
+  \usepackage[utf8]{inputenc}
+\else
+  \usepackage{fontspec}
+  \setmainfont{texgyretermes-regular.otf}[
+    BoldFont=texgyretermes-bold.otf,
+    ItalicFont=texgyretermes-italic.otf,
+    BoldItalicFont=texgyretermes-bolditalic.otf]
+\fi
+\usepackage{amsmath,booktabs,balance,float}
+\title{Giải bài toán $N$ quân hậu bằng SAT và Min-Conflicts}
+\author{\IEEEauthorblockN{Đặng Minh Hiếu}
+\IEEEauthorblockA{Khoa Công nghệ Thông tin\\Trường Đại học Tôn Đức Thắng}}
+\begin{document}
+\maketitle
+\begin{abstract}
+Nghiên cứu biểu diễn bài toán $N$ quân hậu bằng logic mệnh đề,
+sinh CNF và giải bằng Glucose3. Hai cách chọn biến trong Min-Conflicts
+được đánh giá trên năm kích thước. Việc ưu tiên hậu có nhiều xung đột
+nhất giảm số bước trung bình ở $N=32$ và $N=64$, trong khi các lần
+khởi động lại làm tăng chi phí trung bình ở một số kích thước nhỏ hơn.
+\end{abstract}
+\begin{IEEEkeywords}
+$N$ quân hậu, logic mệnh đề, CNF, Glucose3, Min-Conflicts.
+\end{IEEEkeywords}
+
+\section{Bài toán $N$ quân hậu}
+
+\subsection{Phát biểu bài toán}
+Trên bàn cờ $N\times N$, cần đặt đúng $N$ hậu sao cho không có hai
+quân cùng hàng, cột hoặc đường chéo. Chỉ số hàng $r$ và cột $c$ bắt
+đầu từ $0$. Hai ô khác nhau cùng đường chéo nếu chúng có cùng
+$r-c$ hoặc cùng $r+c$.
+
+Với $N=4$, thử đặt hậu ở $(0,2)$. Trên hàng $1$, cột $2$ đã có hậu
+và cột $1,3$ nằm chéo với $(0,2)$, nên chọn $(1,0)$. Trên hàng $2$,
+các cột $0,2$ đã có hậu và ô $(2,1)$ nằm chéo với $(1,0)$, nên
+chọn $(2,3)$. Hàng cuối còn cột $1$ và ô $(3,1)$ không nằm chéo
+với ba hậu trước. Các hiệu $r-c$ là $(-2,1,-1,2)$, còn các tổng
+$r+c$ là $(2,1,5,4)$. Mỗi dãy có bốn giá trị phân biệt, xác nhận
+nghiệm ở Hình~\ref{fig:board}.
+
+\begin{figure}[H]
+\centering
+\setlength{\tabcolsep}{8pt}
+\renewcommand{\arraystretch}{1.1}
+\begin{tabular}{r|cccc}
+$r\backslash c$ & 0 & 1 & 2 & 3\\ \hline
+0 & $\cdot$ & $\cdot$ & \textbf{Q} & $\cdot$\\
+1 & \textbf{Q} & $\cdot$ & $\cdot$ & $\cdot$\\
+2 & $\cdot$ & $\cdot$ & $\cdot$ & \textbf{Q}\\
+3 & $\cdot$ & \textbf{Q} & $\cdot$ & $\cdot$
+\end{tabular}
+\caption{Nghiệm giải tay trên bàn $4\times4$.}
+\label{fig:board}
+\end{figure}
+
+\subsection{Cài đặt và tối ưu hóa}
+\textit{Mô hình logic mệnh đề.}
+Biến Boolean $x_{r,c}$ đúng khi ô $(r,c)$ chứa hậu. Mỗi hàng có
+mệnh đề $\bigvee_{c=0}^{N-1}x_{r,c}$ để buộc có ít nhất một hậu.
+Chương trình nhóm các ô theo $r$, $c$, $r-c$ và $r+c$. Với mỗi cặp
+ô $\{a,b\}$ trong cùng nhóm, điều kiện $\neg(x_a\land x_b)$ trở
+thành $\neg x_a\lor\neg x_b$ theo luật De Morgan. Hội của các
+mệnh đề tạo thành CNF~\cite{lec09}:
+\begin{align}
+F_N &= \bigwedge_{r=0}^{N-1}
+      \left(\bigvee_{c=0}^{N-1}x_{r,c}\right)\notag\\
+    &\quad {}\land\bigwedge_{\{a,b\}\in\mathcal{P}}
+      (\neg x_a\lor\neg x_b),
+\end{align}
+với $\mathcal{P}$ là tập các cặp ô tấn công nhau. Mỗi hàng có
+đúng một hậu, nên có $N$ hậu. Ràng buộc cột và chéo loại các cặp
+tấn công còn lại. Theo chiều ngược lại, mọi bàn cờ hợp lệ thỏa
+từng mệnh đề của $F_N$.
+
+Mã DIMACS của ô $(r,c)$ là $rN+c+1$. Với $N=4$, hàng đầu sinh
+\texttt{[1,2,3,4]}. Cặp cùng hàng, cùng cột và cùng chéo lần lượt
+có các ví dụ \texttt{[-1,-2]}, \texttt{[-1,-5]}, \texttt{[-1,-6]}.
+Mỗi họ chéo có các đường dài $1,2,3,4,3,2,1$, tạo $14$ mệnh đề.
+Tổng là $4+24+24+14+14=80$. Tổng quát, mỗi hàng và cột có
+$\binom{N}{2}$ cặp. Mỗi họ chéo có một đường dài $N$ và hai
+đường cho mỗi độ dài $k<N$. Dùng
+$\sum_{k=1}^{N-1}\binom{k}{2}=\binom{N}{3}$, số mệnh đề
+cấm đôi của mỗi họ chéo là $\binom{N}{2}+2\binom{N}{3}$.
+Cộng các nhóm và $N$ mệnh đề dương thu được
+\begin{equation}
+C(N)=N+N^2(N-1)+\frac{N(N-1)(2N-1)}{3}.
+\end{equation}
+Gom nhóm cần $O(N^2)$ thời gian. Sinh và lưu tất cả mệnh đề cấm
+đôi cần $O(N^3)$.
+
+\textit{Giải bằng Glucose3.}
+Lớp \texttt{NQueens} biểu diễn bàn cờ và kiểm tra nghiệm.
+\texttt{CNFEncoder} sinh mệnh đề và xuất DIMACS. \texttt{SATSolver}
+nạp CNF vào Glucose3 của PySAT, gọi \texttt{solve()} và đọc model
+bằng \texttt{get\_model()} nếu khả thỏa. Với literal dương $\ell$,
+thương và dư của phép chia $\ell-1$ cho $N$ cho hàng và cột.
+Nghiệm giải tay tương ứng các literal dương $3,5,12,14$.
+Ví dụ $12-1=2\cdot4+3$ xác định ô $(2,3)$. Glucose3 trả về đúng
+nghiệm này ở lần chạy đầu tiên với $N=4$. Chương trình kiểm tra
+nghiệm trước khi in hoặc vẽ bàn cờ.
+
+\textit{Min-Conflicts.}
+\texttt{MinConflictsSolver} dùng biến $q_c$ lưu hàng của hậu ở
+cột $c$, với miền $\{0,\ldots,N-1\}$. Gọi $g_c(t;q)$ là số hậu
+ở các cột khác tấn công ô $(t,c)$. Số cặp xung đột là
+\begin{equation}
+P(q)=\frac12\sum_{c=0}^{N-1} g_c(q_c;q),
+\end{equation}
+vì mỗi cặp được tính ở cả hai cột. Nghiệm đạt được khi $P(q)=0$.
+Theo Lecture~08~\cite{lec08}, bản chuẩn bắt đầu từ một phép
+gán đầy đủ rồi chọn đều ngẫu nhiên một cột có $g_c(q_c;q)>0$.
+Bản đề xuất chọn cột có $g_c(q_c;q)$ lớn nhất và phá hòa ngẫu
+nhiên. Cả hai gỡ hậu, thử mọi hàng rồi chọn ngẫu nhiên một hàng
+có $g_c(t;q)$ nhỏ nhất. Chỉ các cặp liên quan đến hậu được dời
+có thể thay đổi. Hàng cũ là một ứng viên, nên $P(q)$ không
+tăng sau bước sửa nhưng có thể giữ nguyên.
+
+Ba mảng đếm theo hàng và hai họ đường chéo cho phép gỡ hoặc đặt
+hậu trong $O(1)$. Điểm của một hậu đang đặt là tổng ba bộ đếm
+tại ô đó trừ $3$ để loại chính nó. Sau khi gỡ hậu, chi phí ô ứng
+viên bằng tổng trực tiếp. Mỗi bước quét $N$ quân và $N$ hàng, tốn
+$O(N)$ thời gian và $O(N)$ bộ nhớ. Khi hết ngân sách một lần chạy,
+chương trình có thể khởi tạo lại. Hết toàn bộ ngân sách được ghi
+là chưa tìm được nghiệm.
+
+\textit{Mô phỏng bằng tay.}
+Từ $q=(1,3,3,2)$, điểm theo cột là $(1,1,3,1)$. Hậu cột $2$
+cùng hàng với hậu cột $1$, cùng chéo với hậu cột $0$ và $3$.
+Heuristic chọn cột $2$. Sau khi gỡ hậu, chi phí thử các hàng là
+$(0,2,2,3)$. Hàng $0$ cho nghiệm $q=(1,3,0,2)$ sau một bước.
+Chương trình trả đúng kết quả khi nhận cùng trạng thái đầu.
+
+Bản chuẩn có thể chọn cột $0$ trước. Chi phí $(0,1,2,2)$ đưa
+trạng thái về $(0,3,3,2)$. Một đường đi tiếp theo là chọn cột
+$2$ với chi phí $(1,1,3,2)$ và phá hòa chọn hàng $0$, thu được
+$(0,3,0,2)$. Chọn cột $0$ với chi phí $(1,0,3,1)$ đưa về
+nghiệm $(1,3,0,2)$. Nếu bản chuẩn chọn cột $2$ ngay đầu, nó
+cũng có thể kết thúc sau một bước.
+
+\subsection{Thí nghiệm và kết quả}
+Thí nghiệm chạy trên Windows 11, Python 3.12.6 và \texttt{python-sat}
+1.9.dev17. Mỗi cấu hình chạy $20$ lượt cho mỗi
+$N\in\{4,8,16,32,64\}$. Mỗi lượt SAT tạo bộ giải mới. Bảng~\ref{tab:sat}
+đo riêng thời gian \texttt{solve()} sau khi nạp CNF. Min-Conflicts
+dùng cùng tập seed $2026$--$2045$ và cùng chuỗi bàn khởi tạo, kể
+cả sau restart. Mỗi lần khởi tạo được tối đa $10\,000$ bước,
+với tối đa $4$ lần khởi động lại. Thời gian Min-Conflicts bao
+gồm khởi tạo và restart. Một lượt gán lại hàng cũ vẫn tính
+là một bước. Tất cả cấu hình đạt $20/20$ nghiệm ở mỗi $N$.
+
+\begin{table}[H]
+\centering
+\caption{Số mệnh đề và thời gian Glucose3, trung bình 20 lượt}
+\label{tab:sat}
+\begin{tabular}{rrrr}
+\toprule
+$N$ & Số biến & Số mệnh đề & \texttt{solve()} (ms)\\
+\midrule
+4 & 16 & 80 & 0.0062\\
+8 & 64 & 736 & 0.0344\\
+16 & 256 & 6336 & 1.0878\\
+32 & 1024 & 52608 & 12.9204\\
+64 & 4096 & 428800 & 152.6832\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[H]
+\centering
+\caption{Kết quả trung bình của hai biến thể Min-Conflicts}
+\label{tab:local}
+\begin{tabular}{rrrrr}
+\toprule
+& \multicolumn{2}{c}{Thời gian (ms)} & \multicolumn{2}{c}{Số bước}\\
+\cmidrule(lr){2-3}\cmidrule(lr){4-5}
+$N$ & Chuẩn & Max & Chuẩn & Max\\
+\midrule
+4 & 0.0416 & 0.0447 & 7.40 & 7.55\\
+8 & 3.5220 & 5.8855 & 1103.15 & 1575.45\\
+16 & 0.5442 & 6.1647 & 95.60 & 1084.65\\
+32 & 0.9424 & 0.8170 & 97.15 & 77.40\\
+64 & 2.2594 & 2.0700 & 127.25 & 112.00\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\balance
+\textit{Kiểm chứng.}
+Bảng~\ref{tab:sat} cho thấy số mệnh đề đầu vào tăng từ $80$ lên
+$428\,800$ khi $N$ tăng từ $4$ lên $64$. Số mệnh đề khớp với công
+thức $C(N)$. Kiểm thử vét cạn $2^{16}$ phép gán ở $N=4$ xác nhận
+CNF nhận đúng các bàn cờ hợp lệ. Kiểm thử với ngân sách một
+bước xác nhận bước chuyển giải tay của heuristic. Cả $300$
+nghiệm thực nghiệm đều được kiểm tra theo hàng, cột và đường chéo.
+
+\textit{Phân tích.} Theo Bảng~\ref{tab:local}, heuristic giảm số bước trung bình
+khoảng $20.3\%$ ở $N=32$ và $12.0\%$ ở $N=64$. Theo từng cặp
+cùng seed, heuristic dùng ít bước hơn ở $13/20$ và $11/20$ lượt.
+Ở $N=16$, trung vị giảm từ $84$ còn $61$ bước, nhưng hai lượt
+heuristic phải khởi động lại, làm trung bình tăng từ $95.60$
+lên $1084.65$. Chênh lệch giữa trung vị và trung bình cho thấy
+các lượt chậm ảnh hưởng lớn tới kết quả. Hai bảng dùng các
+phạm vi đo khác nhau. Bảng~\ref{tab:sat} mô tả thời gian riêng
+của Glucose3 khi tăng $N$, còn Bảng~\ref{tab:local} so sánh hai
+quy tắc chọn biến trong cùng một quy trình tìm kiếm. Số đo thời
+gian phản ánh cấu hình Windows đã thử.
+
+\begin{thebibliography}{00}
+\bibitem{lec09} N. T. An, \emph{Logical Agents},
+Lecture 09, Introduction to Artificial Intelligence,
+Ton Duc Thang University, 2026, slide 27.
+\bibitem{lec08} N. T. An, \emph{Constraint Satisfaction},
+Lecture 08, Introduction to Artificial Intelligence,
+Ton Duc Thang University, 2026, slides 29--31.
+\end{thebibliography}
+\end{document}
