@@ -176,7 +176,7 @@ Các hậu còn lại ở `(0,1),(0,2),(0,3)`. Chi phí đặt lại tại cột
 
 Chọn ngẫu nhiên hàng 1,2 hoặc 3. Nếu chọn 1, trạng thái thành `[1,0,0,0]`. Đây mới là bước sửa, chưa phải nghiệm. Thuật toán tiếp tục đến khi không có xung đột. Ví dụ này minh họa quy tắc, không phải trace được ghi từ seed cụ thể.
 
-## 6. Giải thích main.py và kiểm thử
+## 6. Giải thích task1.py và kiểm thử
 
 `main()` đọc tham số bằng argparse. Lệnh `solve` tìm một nghiệm; `benchmark` thực hiện nhiều lần chạy. Các tham số quan trọng là N, tên thuật toán, seed, số bước và số restart. `if __name__ == '__main__'` chỉ gọi main khi chạy file trực tiếp, không tự chạy khi import.
 

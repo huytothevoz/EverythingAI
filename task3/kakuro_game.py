@@ -719,7 +719,7 @@ class KakuroPlayGUI:
 
 
 def main() -> None:
-    from main import main as application_main
+    from task3 import main as application_main
 
     application_main()
 

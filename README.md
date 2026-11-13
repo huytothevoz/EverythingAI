@@ -38,21 +38,25 @@ python -m pip install -r requirement.txt
 .
 ├── requirement.txt
 ├── README.md
+├── main.py
 ├── task1/
+│   ├── task1.py
 │   ├── experiments.ipynb
-│   ├── note/
-│   └── results/
 ├── task2/
+│   ├── task2.py
 │   ├── agents/
 │   ├── assets/
 │   └── experiments.ipynb
 └── task3/
+    ├── task3.py
     └── experiments.ipynb
 ```
 
 Mỗi thư mục `taskN/` chứa source và notebook thực nghiệm của task đó. Mở notebook trong VS Code/Jupyter và chạy các cell theo thứ tự; dùng thư mục của task làm working directory nếu notebook yêu cầu import module cùng thư mục.
 
 ## Task 1 — Local Search & Propositional Logic: N-Queens
+
+Chạy launcher `python main.py` từ thư mục gốc và chọn Task 1, hoặc chạy riêng `python task1.py` trong thư mục `task1`.
 
 ### Nội dung
 
@@ -62,10 +66,6 @@ Mỗi thư mục `taskN/` chứa source và notebook thực nghiệm của task 
 - `NQueens` quản lý bài toán và kiểm tra/hiển thị nghiệm.
 
 ### Chạy chương trình và kiểm thử
-
-```bash
-python task1/main.py
-```
 
 Menu cho phép giải bằng Glucose3, Min-Conflicts chuẩn, Min-Conflicts max-conflict hoặc chạy benchmark. Benchmark mặc định dùng `N = 4, 8, 16, 32, 64`, 20 lượt cho mỗi cấu hình; kết quả mới được ghi vào `task1/benchmark-output/`.
 
@@ -84,6 +84,8 @@ Hai biến thể Min-Conflicts dùng chung seed, ngân sách và trạng thái k
 
 ## Task 2 — Adversarial Search: Pixel Tank Wars
 
+Chạy `python main.py` từ thư mục gốc và chọn Task 2, hoặc chạy riêng `python task2.py` trong thư mục `task2`.
+
 ### Mô hình trò chơi
 
 Game theo lượt trên lưới 20×20, hai bên MAX/MIN, thông tin hoàn hảo. Xe tăng có 6 HP, căn cứ 9 HP, tường 3 HP; đạn gây 1 sát thương và di chuyển tối đa 3 ô mỗi chu kỳ. Các hành động gồm di chuyển lên/xuống/trái/phải, đứng yên và bắn. Trò chơi kết thúc khi xe tăng hoặc căn cứ bị phá hủy.
@@ -96,20 +98,20 @@ Bốn cấu hình được so sánh: Minimax, Alpha-Beta, Minimax-Heuristic và 
 
 ### Khởi chạy
 
-```bash
-python task2/main.py
-```
-
-Menu cho phép mở GUI hoặc chạy benchmark. Có thể chạy trực tiếp:
+Menu cho phép mở GUI hoặc chạy benchmark. Chạy riêng các công cụ từ thư mục `task2`:
 
 ```bash
-python task2/main.py
-python task2/experiment.py
+cd task2
+python task2.py
+python gui.py
+python experiment.py
 ```
 
 GUI hỗ trợ User vs AI và AI vs AI, chọn thuật toán cho mỗi bên, tạm dừng/tiếp tục, đi từng bước và bật/tắt tự động. Trong User vs AI, dùng `W`, `A`, `S`, `D` để di chuyển/quay hướng và `Space` để bắn. Sidebar hiển thị lượt, HP và thống kê tìm kiếm.
 
 ## Task 3 — Constraint Satisfaction Problems: Kakuro
+
+Chạy `python main.py` từ thư mục gốc và chọn Task 3, hoặc chạy riêng `python task3.py` trong thư mục `task3`.
 
 ### Mô hình và bộ giải
 
@@ -121,10 +123,6 @@ GUI hỗ trợ User vs AI và AI vs AI, chọn thuật toán cho mỗi bên, t�
 
 ### Chạy và quan sát
 
-```bash
-python task3/main.py
-```
-
 Chọn **Play Game** để tự chơi hoặc **AI Solver** để quan sát. GUI hiển thị pencil marks/miền, propagation, gán số, mâu thuẫn và quay lui; có Start, Pause/Resume, Step, Reset và tùy chọn propagation/heuristic.
 
 Chạy benchmark dòng lệnh:
@@ -134,4 +132,3 @@ python task3/eval_benchmark.py
 ```
 
 Notebook [`task3/experiments.ipynb`](./task3/experiments.ipynb) mô tả mô hình, so sánh GAC với Forward Checking trên bảng 9×9, chạy lặp và lưu output làm dữ liệu báo cáo. Benchmark không bao gồm chế độ không propagation trên bảng lớn vì có thể rất chậm. Thời gian đo thay đổi theo CPU/Python.
-

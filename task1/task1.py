@@ -1,7 +1,7 @@
 """Task 1 (N-Queens): thư viện + menu tương tác.
 
-Chạy `python main.py` để mở menu.
-Notebook vẫn import được: from main import solve_one, benchmark
+Chạy `python task1.py` để mở menu.
+Notebook vẫn import được: from task1 import solve_one, benchmark
 """
 import csv
 import statistics
