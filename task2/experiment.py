@@ -140,10 +140,10 @@ class BenchmarkExperiment:
             results.append(res)
 
         print(f"{'Thuật toán':<22} | {'Kết quả':<14} | {'Bước':<6} | {'Điểm MAX':<10} | {'Điểm MIN':<10} | {'ms/nước':<10} | {'Nodes/bước':<10} | {'Cắt tỉa':<8}")
-        print("-" * 10)
+        
         for r in results:
             print(f"{r['name']:<22} | {r['result']:<14} | {r['steps']:<6} | {r['score_max']:<10.1f} | {r['score_min']:<10.1f} | {r['avg_time_ms']:<10.2f} | {r['avg_nodes']:<10.1f} | {r['avg_pruned']:<8.1f}")
-        print("=" * 10 + "\n")
+
 
 if __name__ == "__main__":
     experiment = BenchmarkExperiment(depth=3, max_steps=1000)
