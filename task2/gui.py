@@ -9,7 +9,6 @@ from entities import Tank, Base, Wall, Bullet
 from agent_loader import load_agent
 from experiment import create_sample_game_state
 
-# --- CẤU HÌNH GIAO DIỆN ---
 CELL_SIZE = 30
 BOARD_WIDTH = GRID_COLS * CELL_SIZE
 BOARD_HEIGHT = GRID_ROWS * CELL_SIZE
@@ -38,15 +37,15 @@ SOUND_FILES = {
     "bullet_hit":   "assets/sounds/bullet_hit.wav",    # đạn trúng đích (chưa phá hủy)
     "destroyed":    "assets/sounds/destroyed.wav",     # thực thể bị phá hủy
     "game_over":    "assets/sounds/game_over.wav",     # kết thúc trận đấu
-    "button_click": "assets/sounds/button_click.wav",  # click nút (bạn tự thêm file)
+    "button_click": "assets/sounds/button_click.wav",  # button click 
 }
 BGM_FILES = {
     "menu":   "assets/sounds/menu_bgm.mp3",   # nhạc nền menu
     "battle": "assets/sounds/battle_bgm.mp3", # nhạc nền trong trận
 }
 
-# Âm lượng: menu giảm 50% so với trận đấu
-BGM_MENU_VOLUME   = 0.2   # = 50% của 0.4
+# Âm lượng: 
+BGM_MENU_VOLUME   = 0.2   
 BGM_BATTLE_VOLUME = 0.4
 SFX_VOLUME = 0.7
 
@@ -64,7 +63,7 @@ COLOR_BTN = (70, 80, 90)
 COLOR_BTN_HOVER = (100, 110, 120)
 COLOR_BTN_ACTIVE = (60, 160, 80)
 
-# Góc xoay (Ảnh gốc chĩa sang TRÁI)
+# Góc xoay 
 DIRECTION_ANGLE = {
     Direction.LEFT: 90,
     Direction.DOWN: 180,
@@ -277,7 +276,6 @@ class TankWarsGUI:
 
     def setup_game_buttons(self):
         sx = BOARD_WIDTH + 20
-        # Đã bỏ "Toggle Auto Play" — Pause/Resume đảm nhiệm vai trò dừng/tiếp tục AI.
         self.game_buttons = [
             Button(sx, 330, 260, 40, "Pause / Resume", self.font_med, self.toggle_pause),
             Button(sx, 390, 260, 40, "Step (AI only)", self.font_med, self.step_ai),
@@ -429,7 +427,6 @@ class TankWarsGUI:
             if action:
                 self._apply_action(action)
 
-            # Vẫn giữ số liệu nội bộ nhưng không hiển thị (người dùng không cần).
             self.last_ai_time = time.time()
 
     # VẼ
@@ -602,7 +599,6 @@ class TankWarsGUI:
 
         pygame.draw.line(self.screen, (100, 100, 100), (BOARD_WIDTH+20, 210), (SCREEN_WIDTH-20, 210), 1)
 
-        # Phần stats gọn: chỉ hiển thị số bước đã đi
         step_surf = self.font_med.render(f"Step Count: {self.move_count}", True, (150, 200, 255))
         self.screen.blit(step_surf, (BOARD_WIDTH + 20, 230))
 

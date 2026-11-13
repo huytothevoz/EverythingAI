@@ -5,7 +5,7 @@ from game_state import GameState
 from entities import Tank, Base, Wall
 from evaluation import evaluate # Đảm bảo import hàm evaluate để chấm điểm cuối trận
 def create_sample_game_state():
-    # 1. Khởi tạo Tanks và Bases ở 2 góc đối diện
+    #Khởi tạo Tanks và Bases ở 2 góc đối diện
     tanks = {
         Player.MAX: Tank(playerID=Player.MAX, position=(16, 16), direction=Direction.UP, hp=HP_TANK),
         Player.MIN: Tank(playerID=Player.MIN, position=(3, 3), direction=Direction.DOWN, hp=HP_TANK)
@@ -39,14 +39,14 @@ def create_sample_game_state():
     center_walls = [
         (8, 8), 
         (8, 11), (9, 11), (10, 11), (11, 11),
-        (11, 8), (11, 9), (11, 10)
-    ]
-
-    all_walls = min_side_walls + max_side_walls + center_walls + [(1, 0), (1, 3), (4, 0), (4, 1), (4, 2), 
+        (11, 8), (11, 9), (11, 10),(1, 0), (1, 3), (4, 0), (4, 1), (4, 2), 
             (18, 19), (18, 16), (15, 19), (15, 18), (15, 17),
             (0, 10), (1, 9), (2, 8), (3, 7), (4, 6), (6, 11),
             (19, 9), (18, 10), (17, 11), (16, 12), (15, 13), (13, 8),
-            (6, 0), (11, 18), (4, 9), (15, 10)]
+            (6, 0), (11, 18), (4, 9), (15, 10)
+    ]
+
+    all_walls = min_side_walls + max_side_walls + center_walls 
 
 
     # Gộp tất cả các bức tường vào dictionary
@@ -55,7 +55,7 @@ def create_sample_game_state():
 
     bullets = []
     
-    # Trả về GameState hoàn chỉnh
+    #Trả về GameState hoàn chỉnh
     return GameState(
         tanks=tanks, 
         bases=bases, 
@@ -98,7 +98,7 @@ class BenchmarkExperiment:
             
             steps_taken += 1
 
-        # Xác định kết quả trận đấu
+        #Xác định kết quả trận đấu
         utility = current_state.get_utility(depth_remaining=0)
         
         if utility > 0:
@@ -139,8 +139,6 @@ class BenchmarkExperiment:
             res = self.run_match_simulation(agent_type, initial_state)
             results.append(res)
 
-        # In bảng tổng hợp mở rộng có thêm cột điểm số của MAX và MIN
-        print("\n" + "=" * 10)
         print(f"{'Thuật toán':<22} | {'Kết quả':<14} | {'Bước':<6} | {'Điểm MAX':<10} | {'Điểm MIN':<10} | {'ms/nước':<10} | {'Nodes/bước':<10} | {'Cắt tỉa':<8}")
         print("-" * 10)
         for r in results:
@@ -148,5 +146,5 @@ class BenchmarkExperiment:
         print("=" * 10 + "\n")
 
 if __name__ == "__main__":
-    experiment = BenchmarkExperiment(depth=4, max_steps=1000)
+    experiment = BenchmarkExperiment(depth=3, max_steps=1000)
     experiment.run_all_benchmarks()

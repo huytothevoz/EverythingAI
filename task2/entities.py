@@ -1,6 +1,6 @@
 from config import BULLET_DAMAGE,HP_BASE,HP_TANK,HP_WALL,Player
 #FILE chứa các thực thể được định nghĩa trong trò chơi
-#Vì mỗi thứ đều có trạng thái máu, vị trí nên dùng class
+#Vì mọi thứ(trừ đạn) đều có trạng thái máu, vị trí nên kế thừa class Entity
 class Entity:
     def __init__(self,hp,position):
         self.position:tuple[int,int] = position 

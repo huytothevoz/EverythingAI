@@ -1,11 +1,11 @@
 from collections import deque
-from config import Player, GRID_ROWS, GRID_COLS, BULLET_SPEED
+from config import Player, GRID_ROWS, GRID_COLS, BULLET_SPEED,HP_WALL
 from game_state import GameState
 
 def bfs_distance(start, goal, walls):
     """Tính khoảng cách ngắn nhất, cho phép đi xuyên tường nhưng bị phạt nặng"""
     if start == goal: return 0
-    # Hàng đợi lưu (tọa độ, chi phí)
+    #Hàng đợi lưu (tọa độ, chi phí)
     q = deque([(start, 0)])
     visited = {start: 0}
     
@@ -16,8 +16,8 @@ def bfs_distance(start, goal, walls):
             nr, nc = r + dr, c + dc
             
             if 0 <= nr < GRID_ROWS and 0 <= nc < GRID_COLS:
-                # Nếu đi vào tường, chi phí tăng thêm 10 (tượng trưng cho việc phải bắn 10 phát)
-                move_cost = 10 if (nr, nc) in walls else 1
+                # Nếu đi vào tường, chi phí tăng thêm do tank phải phá tường
+                move_cost = HP_WALL if (nr, nc) in walls else 1
                 new_cost = cost + move_cost
                 
                 if (nr, nc) == goal:
@@ -61,7 +61,7 @@ def evaluate(state: GameState, perspective: Player = Player.MAX) -> float:
             d_min = bfs_distance(min_tank.position, max_base.position, state.walls)
             position_score += d_min * 15
         
-        # Đánh giá mối đe dọa từ đạn đang bay
+        #Đánh giá mối đe dọa từ đạn đang bay
         bullet_score = 0
         for bullet in state.bullets:
             sign = 1 if bullet.owner == Player.MAX else -1
