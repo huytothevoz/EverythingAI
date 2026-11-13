@@ -39,7 +39,7 @@ Gói cần cài là **python-sat**, không phải gói `pysat` có cùng tên im
 ```
 
 - Chọn **1–3**: nhập N, chương trình giải một bài và in bàn cờ ASCII cùng thời gian (và số bước với Min-Conflicts).
-- Chọn **4**: chạy thí nghiệm đầy đủ (mặc định N=4,8,16,32,64 và 20 trials mỗi cấu hình), ghi `results/raw.csv` và `results/summary.csv`.
+- Chọn **4** để chạy thí nghiệm. Mặc định N=4,8,16,32,64 và 20 lượt cho mỗi cấu hình. Kết quả chạy mới được ghi vào `task1/benchmark-output/`.
 - Chọn **0**: thoát.
 
 ## Tổ chức
@@ -52,12 +52,13 @@ Gói cần cài là **python-sat**, không phải gói `pysat` có cùng tên im
 - **`main.py`** — menu tương tác và hàm `benchmark()` gọi được từ notebook.
 - **`test_nqueens.py`** — kiểm thử độc lập, gồm duyệt toàn bộ 65.536 phép gán của N=4 để đối chiếu CNF với luật bàn cờ.
 - **`experiments.ipynb`** — notebook thực nghiệm (đã lưu output): bảng SAT, bảng Min-Conflicts 20 trials, đồ thị so sánh.
-- **`REPORT.md`** — bản nháp nội dung báo cáo; bản chính thức là `report.pdf` theo template IEEE.
+- **`note/REPORT.md`** — nội dung báo cáo và hai bảng kết quả.
 
-Sau khi chọn menu **4**, thư mục `results/` chứa:
+Thư mục `task1/results/` lưu bộ 300 lượt dùng trong báo cáo và notebook:
 
 - `raw.csv` — từng lần chạy: N, thuật toán, trial, seed, số clause, thời gian encode, success, seconds, steps, attempts.
 - `summary.csv` — tổng hợp theo (N, thuật toán): success rate, mean/median/stdev thời gian, mean/median steps, số lượt phải restart.
+- `environment.json` — môi trường và tham số của bộ số liệu dùng trong báo cáo.
 
 ## Quy ước
 
@@ -73,7 +74,7 @@ Hai biến thể local search dùng cùng seed, ngân sách và quy tắc chọn
 
 Thời gian local search gồm khởi tạo, kiểm tra và restart. Thời gian SAT chỉ đo `solve()`, không gồm sinh CNF, nạp mệnh đề hay giải mã. Vì vậy ưu tiên so sánh standard và max_conflict với nhau; không xem thời gian SAT là thời gian đầu-cuối.
 
-Kết quả chi tiết nằm trong `experiments.ipynb` (đã lưu output) và trong `results/summary.csv` sau khi chọn menu 4.
+Notebook đọc `task1/results/summary.csv` để tạo bảng và biểu đồ. Mở notebook trong `task1/` hoặc chạy từ thư mục gốc của repo. Mục 4 ghi các lần đo mới vào `task1/benchmark-output/`, nên chạy demo với kích thước tùy chọn sẽ không ghi đè số liệu báo cáo.
 
 Tài liệu API tham khảo: https://pysathq.github.io/docs/html/api/solvers.html
 Min-Conflicts chuẩn được đối chiếu với slide 30 của tài liệu Lecture 08.

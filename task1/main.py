@@ -12,6 +12,8 @@ from time import perf_counter
 from nqueens import NQueens, CNFEncoder, SATSolver, MinConflictsSolver
 
 ALGORITHMS = ('glucose3', 'standard', 'max_conflict')
+DEFAULT_SIZES = (4, 8, 16, 32, 64)
+DEFAULT_OUTPUT = Path(__file__).resolve().parent / 'benchmark-output'
 LABELS = {
     'glucose3': 'Glucose3 (SAT)',
     'standard': 'Min-Conflicts (standard)',
@@ -24,6 +26,8 @@ LABELS = {
 def solve_one(problem, algorithm, clauses=None, seed=2026,
               steps=10000, restarts=4, initial_rows=None):
     """Chạy 1 solver trên 1 bài toán, trả về Result."""
+    if algorithm not in ALGORITHMS:
+        raise ValueError(f'Thuật toán không hợp lệ: {algorithm}')
     if algorithm == 'glucose3':
         return SATSolver().solve(problem, clauses)
     solver = MinConflictsSolver(heuristic=(algorithm == 'max_conflict'),
@@ -31,11 +35,18 @@ def solve_one(problem, algorithm, clauses=None, seed=2026,
     return solver.solve(problem, seed, initial_rows)
 
 
-def benchmark(sizes=(4, 8, 16, 32, 64), trials=20,
+def benchmark(sizes=DEFAULT_SIZES, trials=20,
               algorithms=ALGORITHMS, seed=2026,
-              steps=10000, restarts=4, output='results'):
+              steps=10000, restarts=4, output=DEFAULT_OUTPUT):
+    sizes = tuple(dict.fromkeys(sizes))
+    algorithms = tuple(dict.fromkeys(algorithms))
+    if not sizes or any(type(n) is not int or n < 4 for n in sizes):
+        raise ValueError('Benchmark cần ít nhất một N nguyên và N >= 4.')
+    if type(trials) is not int or trials < 1:
+        raise ValueError('Số lượt chạy phải là số nguyên dương.')
+    if not algorithms or any(name not in ALGORITHMS for name in algorithms):
+        raise ValueError('Cần chọn ít nhất một thuật toán hợp lệ.')
     out = Path(output)
-    out.mkdir(parents=True, exist_ok=True)
     records = []
     for n in sizes:
         problem = NQueens(n)
@@ -61,6 +72,7 @@ def benchmark(sizes=(4, 8, 16, 32, 64), trials=20,
         print(f'  N={n}: xong {trials} lượt / thuật toán')
 
     summary = _summarize(records, sizes, algorithms)
+    out.mkdir(parents=True, exist_ok=True)
     _write_results(out, records, summary)
     return records, summary
 
@@ -123,6 +135,8 @@ def _do_solve(algorithm):
         print(f'  Thời gian: {result.seconds * 1000:.3f} ms')
         if result.steps:
             print(f'  Số bước: {result.steps} (khởi tạo {result.attempts} lần)')
+    elif algorithm == 'glucose3':
+        print(f'  Bàn cờ N={n} vô nghiệm (UNSAT).')
     else:
         print('  Không tìm được nghiệm (hết ngân sách).')
 
@@ -131,16 +145,16 @@ def _do_benchmark():
     trials = _ask_int('Số trials mỗi N', 20)
     raw = _ask('Các N (cách nhau bởi dấu phẩy)', '4,8,16,32,64')
     try:
-        sizes = [int(x.strip()) for x in raw.split(',') if x.strip()]
+        sizes = list(dict.fromkeys(int(x.strip()) for x in raw.split(',')))
     except ValueError:
-        print('  ! Danh sách N không hợp lệ, dùng mặc định [4,8,16,32,64].')
-        sizes = [4, 8, 16, 32, 64]
+        print('  ! Danh sách N không hợp lệ. Ví dụ: 4,8,16.')
+        return
     if any(n < 4 for n in sizes):
-        print('  ! Benchmark yêu cầu N >= 4, dùng mặc định.')
-        sizes = [4, 8, 16, 32, 64]
+        print('  ! Benchmark yêu cầu mọi N >= 4.')
+        return
     print(f'  Chạy: N={sizes}, trials={trials}')
     benchmark(sizes=sizes, trials=trials)
-    print('  Xong. Xem results/: raw.csv, summary.csv')
+    print(f'  Xong. Xem raw.csv và summary.csv trong {DEFAULT_OUTPUT}')
 
 
 # ---------- Menu chính ----------

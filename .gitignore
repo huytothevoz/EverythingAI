@@ -8,3 +8,4 @@ Thumbs.db
 *.zip
 *.docx
 *.cnf
+/task1/benchmark-output/
