@@ -21,7 +21,6 @@ LABELS = {
 }
 
 
-# ---------- Thư viện (gọi được từ notebook / test) ----------
 
 def solve_one(problem, algorithm, clauses=None, seed=2026,
               steps=10000, restarts=4, initial_rows=None):
