@@ -1,5 +1,4 @@
 import sys
-import os
 import time
 
 def print_header():
